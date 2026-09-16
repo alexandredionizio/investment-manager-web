@@ -1,0 +1,245 @@
+.app-header {
+    width: 100%;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-content {
+    position: relative;
+
+    max-width: 1200px;
+    height: 72px;
+    margin: 0 auto;
+    padding: 0 24px;
+
+    display: flex;
+    align-items: center;
+    gap: 40px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f2f57;
+
+    white-space: nowrap;
+}
+
+.brand-icon {
+    width: 38px;
+    height: 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background-color: #163f70;
+    color: #ffffff;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.header-navigation {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 24px;
+}
+
+.main-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    flex: 1;
+}
+
+.nav-link {
+    position: relative;
+
+    padding: 26px 12px 23px;
+
+    color: #64748b;
+    text-decoration: none;
+
+    font-size: 14px;
+    font-weight: 500;
+
+    transition:
+            color 0.2s ease,
+            background-color 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #163f70;
+}
+
+.nav-link.active {
+    color: #163f70;
+    font-weight: 600;
+}
+
+.nav-link.active::after {
+    content: "";
+
+    position: absolute;
+
+    left: 12px;
+    right: 12px;
+    bottom: 0;
+
+    height: 3px;
+
+    background-color: #163f70;
+
+    border-radius: 3px 3px 0 0;
+}
+
+.logout-button {
+    padding: 9px 18px;
+
+    border: 1px solid #d7e0ea;
+    border-radius: 7px;
+
+    background-color: #ffffff;
+    color: #163f70;
+
+    font-weight: 600;
+    cursor: pointer;
+
+    transition:
+            background-color 0.2s ease,
+            border-color 0.2s ease;
+}
+
+.logout-button:hover {
+    background-color: #f1f5f9;
+    border-color: #b8c6d6;
+}
+
+/*
+ * Botão do menu mobile.
+ * No desktop ele permanece escondido.
+ */
+.mobile-menu-button {
+    display: none;
+
+    width: 42px;
+    height: 42px;
+    padding: 0;
+
+    border: 1px solid #d7e0ea;
+    border-radius: 7px;
+
+    background-color: #ffffff;
+
+    cursor: pointer;
+}
+
+.mobile-menu-button span {
+    display: block;
+
+    width: 20px;
+    height: 2px;
+
+    margin: 4px auto;
+
+    background-color: #163f70;
+
+    border-radius: 2px;
+}
+
+/*
+ * Layout mobile
+ */
+@media (max-width: 850px) {
+    .header-content {
+        height: 64px;
+        padding: 0 18px;
+
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .brand > span:last-child {
+        display: none;
+    }
+
+    .brand-icon {
+        width: 36px;
+        height: 36px;
+    }
+
+    .mobile-menu-button {
+        display: block;
+    }
+
+    .header-navigation {
+        display: none;
+
+        position: absolute;
+
+        top: 64px;
+        left: 0;
+        right: 0;
+
+        padding: 12px 18px 18px;
+
+        background-color: #ffffff;
+        border-top: 1px solid #eef2f6;
+        border-bottom: 1px solid #dbe3ec;
+
+        box-shadow: 0 8px 20px rgba(16, 42, 76, 0.08);
+    }
+
+    .header-navigation.open {
+        display: block;
+    }
+
+    .main-nav {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+
+        gap: 2px;
+    }
+
+    .nav-link {
+        width: 100%;
+
+        padding: 12px 10px;
+
+        border-radius: 6px;
+
+        font-size: 14px;
+    }
+
+    .nav-link:hover {
+        background-color: #f6f8fb;
+    }
+
+    .nav-link.active {
+        background-color: #f1f5f9;
+    }
+
+    .nav-link.active::after {
+        display: none;
+    }
+
+    .logout-button {
+        width: 100%;
+
+        margin-top: 12px;
+        padding: 11px 18px;
+    }
+}
