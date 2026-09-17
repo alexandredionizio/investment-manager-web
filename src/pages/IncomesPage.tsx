@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AxiosError } from 'axios'
 import Header from '../components/Header'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findAllAssets } from '../services/assetService'
@@ -12,6 +13,12 @@ import type {
     IncomeResponse,
     IncomeType,
 } from '../types/income'
+
+interface ApiErrorResponse {
+    status: number
+    error: string
+    message: string
+}
 
 function IncomesPage() {
     const [incomes, setIncomes] =
@@ -35,7 +42,7 @@ function IncomesPage() {
     const [amountPerUnit, setAmountPerUnit] =
         useState('')
 
-    const [quantity, setQuantity] =
+    const [baseDate, setBaseDate] =
         useState('')
 
     const [paymentDate, setPaymentDate] =
@@ -99,7 +106,7 @@ function IncomesPage() {
             !portfolioId ||
             !assetId ||
             !amountPerUnit ||
-            !quantity ||
+            !baseDate ||
             !paymentDate
         ) {
             setError(
@@ -116,7 +123,7 @@ function IncomesPage() {
                 assetId: Number(assetId),
                 type,
                 amountPerUnit: Number(amountPerUnit),
-                quantity: Number(quantity),
+                baseDate,
                 paymentDate,
             })
 
@@ -124,7 +131,7 @@ function IncomesPage() {
 
             setAssetId('')
             setAmountPerUnit('')
-            setQuantity('')
+            setBaseDate('')
             setPaymentDate('')
             setType('DIVIDEND')
         } catch (error) {
@@ -132,6 +139,16 @@ function IncomesPage() {
                 'Erro ao cadastrar provento:',
                 error,
             )
+
+            if (error instanceof AxiosError) {
+                const apiError =
+                    error.response?.data as ApiErrorResponse
+
+                if (apiError?.message) {
+                    setError(apiError.message)
+                    return
+                }
+            }
 
             setError(
                 'Não foi possível cadastrar o provento.',
@@ -192,8 +209,9 @@ function IncomesPage() {
                         <div>
                             <h2>Novo provento</h2>
                             <p>
-                                Registre dividendos, JCP e
-                                rendimentos recebidos.
+                                Informe a data-base e o sistema
+                                calculará automaticamente a
+                                quantidade elegível.
                             </p>
                         </div>
                     </div>
@@ -310,22 +328,19 @@ function IncomesPage() {
                         </div>
 
                         <div className="income-form-field">
-                            <label htmlFor="quantity">
-                                Quantidade
+                            <label htmlFor="base-date">
+                                Data-base
                             </label>
 
                             <input
-                                id="quantity"
-                                type="number"
-                                min="0"
-                                step="0.00000001"
-                                value={quantity}
+                                id="base-date"
+                                type="date"
+                                value={baseDate}
                                 onChange={(event) =>
-                                    setQuantity(
+                                    setBaseDate(
                                         event.target.value,
                                     )
                                 }
-                                placeholder="Ex.: 100"
                             />
                         </div>
 
@@ -385,7 +400,8 @@ function IncomesPage() {
                             <table className="transactions-table">
                                 <thead>
                                 <tr>
-                                    <th>Data</th>
+                                    <th>Data-base</th>
+                                    <th>Pagamento</th>
                                     <th>Ativo</th>
                                     <th>Tipo</th>
                                     <th>Quantidade</th>
@@ -401,6 +417,12 @@ function IncomesPage() {
                                     <tr key={income.id}>
                                         <td>
                                             {formatDate(
+                                                income.baseDate,
+                                            )}
+                                        </td>
+
+                                        <td>
+                                            {formatDate(
                                                 income.paymentDate,
                                             )}
                                         </td>
@@ -410,11 +432,11 @@ function IncomesPage() {
                                         </td>
 
                                         <td>
-                                                <span className="income-type">
-                                                    {formatIncomeType(
-                                                        income.type,
-                                                    )}
-                                                </span>
+                                            <span className="income-type">
+                                                {formatIncomeType(
+                                                    income.type,
+                                                )}
+                                            </span>
                                         </td>
 
                                         <td>

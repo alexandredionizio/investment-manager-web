@@ -8,7 +8,7 @@ export interface IncomeRequest {
     assetId: number
     type: IncomeType
     amountPerUnit: number
-    quantity: number
+    baseDate: string
     paymentDate: string
 }
 
@@ -21,5 +21,6 @@ export interface IncomeResponse {
     amountPerUnit: number
     quantity: number
     totalAmount: number
+    baseDate: string
     paymentDate: string
 }
