@@ -4,10 +4,12 @@ import Header from '../components/Header'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findMarketPositions } from '../services/positionService'
 import { findIncomesByPortfolio } from '../services/incomeService'
+import { findRealizedResultsByPortfolio } from '../services/realizedResultService'
 
 import type { PortfolioResponse } from '../types/portfolio'
 import type { PositionMarketResponse } from '../types/position'
 import type { IncomeResponse } from '../types/income'
+import type { RealizedResultResponse } from '../types/realizedResult'
 
 function DashboardPage() {
     const [portfolios, setPortfolios] =
@@ -21,6 +23,9 @@ function DashboardPage() {
 
     const [incomes, setIncomes] =
         useState<IncomeResponse[]>([])
+
+    const [realizedResults, setRealizedResults] =
+        useState<RealizedResultResponse[]>([])
 
     const [loading, setLoading] =
         useState(true)
@@ -53,6 +58,7 @@ function DashboardPage() {
                 const [
                     positionsData,
                     incomesData,
+                    realizedResultsData,
                 ] = await Promise.all([
                     findMarketPositions(
                         firstPortfolioId,
@@ -60,10 +66,14 @@ function DashboardPage() {
                     findIncomesByPortfolio(
                         firstPortfolioId,
                     ),
+                    findRealizedResultsByPortfolio(
+                        firstPortfolioId,
+                    ),
                 ])
 
                 setPositions(positionsData)
                 setIncomes(incomesData)
+                setRealizedResults(realizedResultsData)
             } catch (error) {
                 console.error(
                     'Erro ao carregar dashboard:',
@@ -93,13 +103,18 @@ function DashboardPage() {
             const [
                 positionsData,
                 incomesData,
+                realizedResultsData,
             ] = await Promise.all([
                 findMarketPositions(portfolioId),
                 findIncomesByPortfolio(portfolioId),
+                findRealizedResultsByPortfolio(
+                    portfolioId,
+                ),
             ])
 
             setPositions(positionsData)
             setIncomes(incomesData)
+            setRealizedResults(realizedResultsData)
         } catch (error) {
             console.error(
                 'Erro ao carregar carteira:',
@@ -140,6 +155,13 @@ function DashboardPage() {
         incomes.reduce(
             (total, income) =>
                 total + income.totalAmount,
+            0,
+        )
+
+    const totalRealizedProfitLoss =
+        realizedResults.reduce(
+            (total, result) =>
+                total + result.realizedProfitLoss,
             0,
         )
 
@@ -263,7 +285,7 @@ function DashboardPage() {
 
                             <article className="dashboard-metric-card">
                                 <span>
-                                    Resultado
+                                    Resultado não realizado
                                 </span>
 
                                 <strong
@@ -282,7 +304,32 @@ function DashboardPage() {
                                 </strong>
 
                                 <small>
-                                    Ganho ou perda não realizada
+                                    Ganho ou perda das posições atuais
+                                </small>
+                            </article>
+
+                            <article className="dashboard-metric-card">
+                                <span>
+                                    Resultado realizado
+                                </span>
+
+                                <strong
+                                    className={
+                                        totalRealizedProfitLoss >= 0
+                                            ? 'positive'
+                                            : 'negative'
+                                    }
+                                >
+                                    {totalRealizedProfitLoss >= 0
+                                        ? '+'
+                                        : ''}
+                                    {formatCurrency(
+                                        totalRealizedProfitLoss,
+                                    )}
+                                </strong>
+
+                                <small>
+                                    Ganho ou perda nas vendas
                                 </small>
                             </article>
 
