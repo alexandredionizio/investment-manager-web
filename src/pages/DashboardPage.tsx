@@ -17,6 +17,7 @@ import { findMarketPositions } from '../services/positionService'
 import { findIncomesByPortfolio } from '../services/incomeService'
 import { findRealizedResultsByPortfolio } from '../services/realizedResultService'
 import { findPortfolioHistory } from '../services/portfolioHistoryService'
+import { findPortfolioReturns } from '../services/portfolioReturnService'
 
 import type { PortfolioResponse } from '../types/portfolio'
 import type { PositionMarketResponse } from '../types/position'
@@ -26,6 +27,7 @@ import type {
     PortfolioHistoryPeriod,
     PortfolioHistoryResponse,
 } from '../types/portfolioHistory'
+import type { PortfolioReturnResponse } from '../types/portfolioReturn'
 
 const historyPeriods: {
     value: PortfolioHistoryPeriod
@@ -40,6 +42,11 @@ const historyPeriods: {
     { value: 'TEN_YEARS', label: '10A' },
     { value: 'ALL', label: 'Tudo' },
     { value: 'CUSTOM', label: 'Personalizado' },
+]
+
+const monthLabels = [
+    'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
 ]
 
 function DashboardPage() {
@@ -62,7 +69,22 @@ function DashboardPage() {
     const [portfolioHistory, setPortfolioHistory] =
         useState<PortfolioHistoryResponse | null>(null)
 
+    const [portfolioReturns, setPortfolioReturns] =
+        useState<PortfolioReturnResponse | null>(null)
+
+    const [totalPortfolioReturns, setTotalPortfolioReturns] =
+        useState<PortfolioReturnResponse | null>(null)
+
+    const [lastTwelveMonthsReturns, setLastTwelveMonthsReturns] =
+        useState<PortfolioReturnResponse | null>(null)
+
+    const [lastMonthReturns, setLastMonthReturns] =
+        useState<PortfolioReturnResponse | null>(null)
+
     const [historyPeriod, setHistoryPeriod] =
+        useState<PortfolioHistoryPeriod>('ONE_MONTH')
+
+    const [returnPeriod, setReturnPeriod] =
         useState<PortfolioHistoryPeriod>('ONE_MONTH')
 
     const [customStartDate, setCustomStartDate] =
@@ -71,10 +93,19 @@ function DashboardPage() {
     const [customEndDate, setCustomEndDate] =
         useState('')
 
+    const [returnCustomStartDate, setReturnCustomStartDate] =
+        useState('')
+
+    const [returnCustomEndDate, setReturnCustomEndDate] =
+        useState('')
+
     const [loading, setLoading] =
         useState(true)
 
     const [historyLoading, setHistoryLoading] =
+        useState(false)
+
+    const [returnLoading, setReturnLoading] =
         useState(false)
 
     const [error, setError] =
@@ -110,6 +141,9 @@ function DashboardPage() {
                     incomesData,
                     realizedResultsData,
                     historyData,
+                    returnsData,
+                    totalReturnsData,
+                    lastTwelveMonthsReturnsData,
                 ] = await Promise.all([
                     findMarketPositions(
                         firstPortfolioId,
@@ -124,12 +158,28 @@ function DashboardPage() {
                         firstPortfolioId,
                         'ONE_MONTH',
                     ),
+                    findPortfolioReturns(
+                        firstPortfolioId,
+                        'ONE_MONTH',
+                    ),
+                    findPortfolioReturns(
+                        firstPortfolioId,
+                        'ALL',
+                    ),
+                    findPortfolioReturns(
+                        firstPortfolioId,
+                        'ONE_YEAR',
+                    ),
                 ])
 
                 setPositions(positionsData)
                 setIncomes(incomesData)
                 setRealizedResults(realizedResultsData)
                 setPortfolioHistory(historyData)
+                setPortfolioReturns(returnsData)
+                setTotalPortfolioReturns(totalReturnsData)
+                setLastTwelveMonthsReturns(lastTwelveMonthsReturnsData)
+                setLastMonthReturns(returnsData)
 
             } catch (error) {
 
@@ -180,11 +230,32 @@ function DashboardPage() {
                             : historyPeriod,
                     )
 
+            const returnsPromise =
+                returnPeriod === 'CUSTOM' &&
+                returnCustomStartDate &&
+                returnCustomEndDate
+                    ? findPortfolioReturns(
+                        portfolioId,
+                        'CUSTOM',
+                        returnCustomStartDate,
+                        returnCustomEndDate,
+                    )
+                    : findPortfolioReturns(
+                        portfolioId,
+                        returnPeriod === 'CUSTOM'
+                            ? 'ONE_MONTH'
+                            : returnPeriod,
+                    )
+
             const [
                 positionsData,
                 incomesData,
                 realizedResultsData,
                 historyData,
+                returnsData,
+                totalReturnsData,
+                lastTwelveMonthsReturnsData,
+                lastMonthReturnsData,
             ] = await Promise.all([
                 findMarketPositions(portfolioId),
                 findIncomesByPortfolio(portfolioId),
@@ -192,18 +263,42 @@ function DashboardPage() {
                     portfolioId,
                 ),
                 historyPromise,
+                returnsPromise,
+                findPortfolioReturns(
+                    portfolioId,
+                    'ALL',
+                ),
+                findPortfolioReturns(
+                    portfolioId,
+                    'ONE_YEAR',
+                ),
+                findPortfolioReturns(
+                    portfolioId,
+                    'ONE_MONTH',
+                ),
             ])
 
             setPositions(positionsData)
             setIncomes(incomesData)
             setRealizedResults(realizedResultsData)
             setPortfolioHistory(historyData)
+            setPortfolioReturns(returnsData)
+            setTotalPortfolioReturns(totalReturnsData)
+            setLastTwelveMonthsReturns(lastTwelveMonthsReturnsData)
+            setLastMonthReturns(lastMonthReturnsData)
 
             if (
                 historyPeriod === 'CUSTOM' &&
                 (!customStartDate || !customEndDate)
             ) {
                 setHistoryPeriod('ONE_MONTH')
+            }
+
+            if (
+                returnPeriod === 'CUSTOM' &&
+                (!returnCustomStartDate || !returnCustomEndDate)
+            ) {
+                setReturnPeriod('ONE_MONTH')
             }
 
         } catch (error) {
@@ -325,6 +420,166 @@ function DashboardPage() {
             setHistoryLoading(false)
         }
     }
+
+    async function handleReturnPeriodChange(
+        period: PortfolioHistoryPeriod,
+    ) {
+
+        if (selectedPortfolioId === null) {
+            return
+        }
+
+        if (period === 'CUSTOM') {
+            setReturnPeriod('CUSTOM')
+            setError('')
+            return
+        }
+
+        try {
+            setReturnLoading(true)
+            setError('')
+
+            const returnsData =
+                await findPortfolioReturns(
+                    selectedPortfolioId,
+                    period,
+                )
+
+            setReturnPeriod(period)
+            setPortfolioReturns(returnsData)
+
+        } catch (error) {
+            console.error(
+                'Erro ao carregar rentabilidade da carteira:',
+                error,
+            )
+
+            setError(
+                'Não foi possível carregar a rentabilidade da carteira.',
+            )
+
+        } finally {
+            setReturnLoading(false)
+        }
+    }
+
+    async function handleCustomReturnSubmit() {
+
+        if (selectedPortfolioId === null) {
+            return
+        }
+
+        if (!returnCustomStartDate || !returnCustomEndDate) {
+            setError(
+                'Informe a data inicial e a data final do período personalizado.',
+            )
+            return
+        }
+
+        if (returnCustomEndDate < returnCustomStartDate) {
+            setError(
+                'A data final não pode ser anterior à data inicial.',
+            )
+            return
+        }
+
+        try {
+            setReturnLoading(true)
+            setError('')
+
+            const returnsData =
+                await findPortfolioReturns(
+                    selectedPortfolioId,
+                    'CUSTOM',
+                    returnCustomStartDate,
+                    returnCustomEndDate,
+                )
+
+            setPortfolioReturns(returnsData)
+
+        } catch (error) {
+            console.error(
+                'Erro ao carregar período personalizado da rentabilidade:',
+                error,
+            )
+
+            setError(
+                'Não foi possível carregar o período personalizado da rentabilidade.',
+            )
+
+        } finally {
+            setReturnLoading(false)
+        }
+    }
+
+    const totalWeightedReturn =
+        (totalPortfolioReturns?.totalReturn ?? 0) * 100
+
+    const lastTwelveMonthsWeightedReturn =
+        (lastTwelveMonthsReturns?.totalReturn ?? 0) * 100
+
+    const lastMonthWeightedReturn =
+        (lastMonthReturns?.totalReturn ?? 0) * 100
+
+    const monthlyReturnRows = (() => {
+
+        if (!totalPortfolioReturns || totalPortfolioReturns.points.length === 0) {
+            return []
+        }
+
+        const points = [...totalPortfolioReturns.points]
+            .sort((a, b) => a.date.localeCompare(b.date))
+
+        const years = new Map<
+            number,
+            {
+                months: (number | null)[]
+                annualFactor: number
+                accumulatedFactor: number
+            }
+        >()
+
+        let accumulatedFactor = 1
+
+        for (const point of points) {
+
+            const [yearText, monthText] = point.date.split('-')
+            const year = Number(yearText)
+            const monthIndex = Number(monthText) - 1
+            const dailyFactor = 1 + point.dailyReturn
+
+            if (!years.has(year)) {
+                years.set(year, {
+                    months: Array(12).fill(null),
+                    annualFactor: 1,
+                    accumulatedFactor,
+                })
+            }
+
+            const yearData = years.get(year)!
+            const currentMonthReturn = yearData.months[monthIndex]
+            const currentMonthFactor =
+                currentMonthReturn === null
+                    ? 1
+                    : 1 + currentMonthReturn
+
+            yearData.months[monthIndex] =
+                currentMonthFactor * dailyFactor - 1
+
+            yearData.annualFactor *= dailyFactor
+            accumulatedFactor *= dailyFactor
+            yearData.accumulatedFactor = accumulatedFactor
+        }
+
+        return Array.from(years.entries())
+            .map(([year, data]) => ({
+                year,
+                months: data.months,
+                annualReturn: data.annualFactor - 1,
+                accumulatedReturn: data.accumulatedFactor - 1,
+            }))
+            .sort((a, b) => b.year - a.year)
+    })()
 
     const totalCurrentValue =
         positions.reduce(
@@ -513,7 +768,7 @@ function DashboardPage() {
 
                 {portfolios.length === 0 ? (
 
-                    <section className="dashboard-card">
+                    <section className="dashboard-card dashboard-return-section">
 
                         <p>
                             Nenhuma carteira encontrada.
@@ -603,7 +858,7 @@ function DashboardPage() {
                             <article className="dashboard-metric-card">
 
                                 <span>
-                                    Rentabilidade
+                                    Resultado sobre custo
                                 </span>
 
                                 <strong
@@ -624,7 +879,7 @@ function DashboardPage() {
                                 </strong>
 
                                 <small>
-                                    Sobre o custo investido
+                                    Variação das posições atuais sobre o custo
                                 </small>
 
                             </article>
@@ -682,6 +937,344 @@ function DashboardPage() {
                             </article>
 
                         </div>
+
+                        <section className="dashboard-card dashboard-return-section">
+
+                            <div className="dashboard-history-header">
+
+                                <div>
+
+                                    <h2>Rentabilidade ponderada</h2>
+
+                                    <p>
+                                        Desempenho da carteira neutralizando compras e vendas e considerando os proventos recebidos.
+                                    </p>
+
+                                </div>
+
+                                <div className="dashboard-history-periods">
+
+                                    {historyPeriods.map(
+                                        (period) => (
+
+                                            <button
+                                                key={period.value}
+                                                type="button"
+                                                className={
+                                                    returnPeriod === period.value
+                                                        ? 'active'
+                                                        : ''
+                                                }
+                                                disabled={returnLoading}
+                                                onClick={() =>
+                                                    handleReturnPeriodChange(
+                                                        period.value,
+                                                    )
+                                                }
+                                            >
+                                                {period.label}
+                                            </button>
+                                        ),
+                                    )}
+
+                                </div>
+
+                            </div>
+
+                            <div className="dashboard-metrics">
+
+                                <article className="dashboard-metric-card">
+
+                                    <span>
+                                        Rentabilidade total
+                                    </span>
+
+                                    <strong
+                                        className={
+                                            totalWeightedReturn >= 0
+                                                ? 'positive'
+                                                : 'negative'
+                                        }
+                                    >
+                                        {totalWeightedReturn >= 0
+                                            ? '+'
+                                            : ''}
+
+                                        {formatPercentage(
+                                            totalWeightedReturn,
+                                        )}
+                                        %
+                                    </strong>
+
+                                    <small>
+                                        Desde o primeiro lançamento da carteira
+                                    </small>
+
+                                </article>
+
+                                <article className="dashboard-metric-card">
+
+                                    <span>
+                                        Últimos 12 meses
+                                    </span>
+
+                                    <strong
+                                        className={
+                                            lastTwelveMonthsWeightedReturn >= 0
+                                                ? 'positive'
+                                                : 'negative'
+                                        }
+                                    >
+                                        {lastTwelveMonthsWeightedReturn >= 0
+                                            ? '+'
+                                            : ''}
+
+                                        {formatPercentage(
+                                            lastTwelveMonthsWeightedReturn,
+                                        )}
+                                        %
+                                    </strong>
+
+                                    <small>
+                                        Rentabilidade ponderada no período
+                                    </small>
+
+                                </article>
+
+                                <article className="dashboard-metric-card">
+
+                                    <span>
+                                        Último mês
+                                    </span>
+
+                                    <strong
+                                        className={
+                                            lastMonthWeightedReturn >= 0
+                                                ? 'positive'
+                                                : 'negative'
+                                        }
+                                    >
+                                        {lastMonthWeightedReturn >= 0
+                                            ? '+'
+                                            : ''}
+
+                                        {formatPercentage(
+                                            lastMonthWeightedReturn,
+                                        )}
+                                        %
+                                    </strong>
+
+                                    <small>
+                                        Rentabilidade ponderada no período
+                                    </small>
+
+                                </article>
+
+                            </div>
+
+                            {returnPeriod === 'CUSTOM' && (
+
+                                <div className="dashboard-history-custom">
+
+                                    <div>
+                                        <label htmlFor="return-start-date">
+                                            Data inicial
+                                        </label>
+
+                                        <input
+                                            id="return-start-date"
+                                            type="date"
+                                            value={returnCustomStartDate}
+                                            onChange={(event) =>
+                                                setReturnCustomStartDate(
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="return-end-date">
+                                            Data final
+                                        </label>
+
+                                        <input
+                                            id="return-end-date"
+                                            type="date"
+                                            value={returnCustomEndDate}
+                                            onChange={(event) =>
+                                                setReturnCustomEndDate(
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        disabled={returnLoading}
+                                        onClick={handleCustomReturnSubmit}
+                                    >
+                                        Aplicar
+                                    </button>
+
+                                </div>
+                            )}
+
+                            <div className="dashboard-return-chart">
+                                {returnLoading ? (
+                                    <div className="dashboard-history-message">
+                                        Carregando rentabilidade...
+                                    </div>
+                                ) : !portfolioReturns || portfolioReturns.points.length === 0 ? (
+                                    <div className="dashboard-history-message">
+                                        Nenhuma rentabilidade disponível.
+                                    </div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart
+                                            data={portfolioReturns.points.map((point) => ({
+                                                ...point,
+                                                cumulativeReturnPercent:
+                                                    point.cumulativeReturn * 100,
+                                            }))}
+                                            margin={{
+                                                top: 10,
+                                                right: 15,
+                                                left: 10,
+                                                bottom: 5,
+                                            }}
+                                        >
+                                            <CartesianGrid
+                                                strokeDasharray="3 3"
+                                                vertical={false}
+                                            />
+
+                                            <XAxis
+                                                dataKey="date"
+                                                tickFormatter={formatHistoryAxisDate}
+                                                minTickGap={30}
+                                            />
+
+                                            <YAxis
+                                                width={70}
+                                                tickFormatter={(value) =>
+                                                    `${formatPercentage(Number(value))}%`
+                                                }
+                                            />
+
+                                            <Tooltip
+                                                labelFormatter={(value) =>
+                                                    formatHistoryDate(String(value))
+                                                }
+                                                formatter={(value) => [
+                                                    `${formatPercentage(Number(value))}%`,
+                                                    'Rentabilidade',
+                                                ]}
+                                            />
+
+                                            <Line
+                                                type="monotone"
+                                                dataKey="cumulativeReturnPercent"
+                                                name="Rentabilidade"
+                                                stroke="#16834b"
+                                                strokeWidth={2.5}
+                                                dot={false}
+                                                activeDot={{ r: 5 }}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+
+                            <div className="dashboard-return-table-section">
+
+                                <div className="dashboard-return-table-heading">
+                                    <h3>Rentabilidade mensal</h3>
+                                    <p>
+                                        Retornos compostos por mês, no ano e acumulados desde o início da carteira.
+                                    </p>
+                                </div>
+
+                                {monthlyReturnRows.length === 0 ? (
+                                    <div className="dashboard-history-message">
+                                        Nenhuma rentabilidade mensal disponível.
+                                    </div>
+                                ) : (
+                                    <div className="dashboard-return-table-wrapper">
+                                        <table className="dashboard-return-table">
+                                            <thead>
+                                            <tr>
+                                                <th>Ano</th>
+                                                {monthLabels.map((month) => (
+                                                    <th key={month}>{month}</th>
+                                                ))}
+                                                <th>No ano</th>
+                                                <th>Acumulado</th>
+                                            </tr>
+                                            </thead>
+
+                                            <tbody>
+                                            {monthlyReturnRows.map((row) => (
+                                                <tr key={row.year}>
+                                                    <td className="dashboard-return-year">
+                                                        {row.year}
+                                                    </td>
+
+                                                    {row.months.map((monthReturn, index) => (
+                                                        <td key={`${row.year}-${index}`}>
+                                                            {monthReturn === null ? (
+                                                                <span className="dashboard-return-empty">—</span>
+                                                            ) : (
+                                                                <span
+                                                                    className={
+                                                                        monthReturn >= 0
+                                                                            ? 'positive'
+                                                                            : 'negative'
+                                                                    }
+                                                                >
+                                                                        {monthReturn >= 0 ? '+' : ''}
+                                                                    {formatPercentage(monthReturn * 100)}%
+                                                                    </span>
+                                                            )}
+                                                        </td>
+                                                    ))}
+
+                                                    <td>
+                                                        <strong
+                                                            className={
+                                                                row.annualReturn >= 0
+                                                                    ? 'positive'
+                                                                    : 'negative'
+                                                            }
+                                                        >
+                                                            {row.annualReturn >= 0 ? '+' : ''}
+                                                            {formatPercentage(row.annualReturn * 100)}%
+                                                        </strong>
+                                                    </td>
+
+                                                    <td>
+                                                        <strong
+                                                            className={
+                                                                row.accumulatedReturn >= 0
+                                                                    ? 'positive'
+                                                                    : 'negative'
+                                                            }
+                                                        >
+                                                            {row.accumulatedReturn >= 0 ? '+' : ''}
+                                                            {formatPercentage(row.accumulatedReturn * 100)}%
+                                                        </strong>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+
+                            </div>
+
+                        </section>
 
                         <section className="dashboard-card dashboard-history-section">
 
