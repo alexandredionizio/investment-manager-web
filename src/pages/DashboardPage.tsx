@@ -4,6 +4,7 @@ import {
     CartesianGrid,
     Line,
     LineChart,
+    Legend,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -18,6 +19,7 @@ import { findIncomesByPortfolio } from '../services/incomeService'
 import { findRealizedResultsByPortfolio } from '../services/realizedResultService'
 import { findPortfolioHistory } from '../services/portfolioHistoryService'
 import { findPortfolioReturns } from '../services/portfolioReturnService'
+import { findBenchmarkComparison } from '../services/benchmarkComparisonService'
 
 import type { PortfolioResponse } from '../types/portfolio'
 import type { PositionMarketResponse } from '../types/position'
@@ -28,6 +30,7 @@ import type {
     PortfolioHistoryResponse,
 } from '../types/portfolioHistory'
 import type { PortfolioReturnResponse } from '../types/portfolioReturn'
+import type { BenchmarkComparisonPointResponse } from '../types/benchmarkComparison'
 
 const historyPeriods: {
     value: PortfolioHistoryPeriod
@@ -69,8 +72,8 @@ function DashboardPage() {
     const [portfolioHistory, setPortfolioHistory] =
         useState<PortfolioHistoryResponse | null>(null)
 
-    const [portfolioReturns, setPortfolioReturns] =
-        useState<PortfolioReturnResponse | null>(null)
+    const [benchmarkComparison, setBenchmarkComparison] =
+        useState<BenchmarkComparisonPointResponse[]>([])
 
     const [totalPortfolioReturns, setTotalPortfolioReturns] =
         useState<PortfolioReturnResponse | null>(null)
@@ -142,6 +145,7 @@ function DashboardPage() {
                     realizedResultsData,
                     historyData,
                     returnsData,
+                    benchmarkComparisonData,
                     totalReturnsData,
                     lastTwelveMonthsReturnsData,
                 ] = await Promise.all([
@@ -162,6 +166,10 @@ function DashboardPage() {
                         firstPortfolioId,
                         'ONE_MONTH',
                     ),
+                    findBenchmarkComparison(
+                        firstPortfolioId,
+                        'ONE_MONTH',
+                    ),
                     findPortfolioReturns(
                         firstPortfolioId,
                         'ALL',
@@ -176,7 +184,7 @@ function DashboardPage() {
                 setIncomes(incomesData)
                 setRealizedResults(realizedResultsData)
                 setPortfolioHistory(historyData)
-                setPortfolioReturns(returnsData)
+                setBenchmarkComparison(benchmarkComparisonData)
                 setTotalPortfolioReturns(totalReturnsData)
                 setLastTwelveMonthsReturns(lastTwelveMonthsReturnsData)
                 setLastMonthReturns(returnsData)
@@ -230,17 +238,17 @@ function DashboardPage() {
                             : historyPeriod,
                     )
 
-            const returnsPromise =
+            const benchmarkComparisonPromise =
                 returnPeriod === 'CUSTOM' &&
                 returnCustomStartDate &&
                 returnCustomEndDate
-                    ? findPortfolioReturns(
+                    ? findBenchmarkComparison(
                         portfolioId,
                         'CUSTOM',
                         returnCustomStartDate,
                         returnCustomEndDate,
                     )
-                    : findPortfolioReturns(
+                    : findBenchmarkComparison(
                         portfolioId,
                         returnPeriod === 'CUSTOM'
                             ? 'ONE_MONTH'
@@ -252,7 +260,7 @@ function DashboardPage() {
                 incomesData,
                 realizedResultsData,
                 historyData,
-                returnsData,
+                benchmarkComparisonData,
                 totalReturnsData,
                 lastTwelveMonthsReturnsData,
                 lastMonthReturnsData,
@@ -263,7 +271,7 @@ function DashboardPage() {
                     portfolioId,
                 ),
                 historyPromise,
-                returnsPromise,
+                benchmarkComparisonPromise,
                 findPortfolioReturns(
                     portfolioId,
                     'ALL',
@@ -282,7 +290,7 @@ function DashboardPage() {
             setIncomes(incomesData)
             setRealizedResults(realizedResultsData)
             setPortfolioHistory(historyData)
-            setPortfolioReturns(returnsData)
+            setBenchmarkComparison(benchmarkComparisonData)
             setTotalPortfolioReturns(totalReturnsData)
             setLastTwelveMonthsReturns(lastTwelveMonthsReturnsData)
             setLastMonthReturns(lastMonthReturnsData)
@@ -439,14 +447,14 @@ function DashboardPage() {
             setReturnLoading(true)
             setError('')
 
-            const returnsData =
-                await findPortfolioReturns(
+            const benchmarkComparisonData =
+                await findBenchmarkComparison(
                     selectedPortfolioId,
                     period,
                 )
 
             setReturnPeriod(period)
-            setPortfolioReturns(returnsData)
+            setBenchmarkComparison(benchmarkComparisonData)
 
         } catch (error) {
             console.error(
@@ -487,15 +495,15 @@ function DashboardPage() {
             setReturnLoading(true)
             setError('')
 
-            const returnsData =
-                await findPortfolioReturns(
+            const benchmarkComparisonData =
+                await findBenchmarkComparison(
                     selectedPortfolioId,
                     'CUSTOM',
                     returnCustomStartDate,
                     returnCustomEndDate,
                 )
 
-            setPortfolioReturns(returnsData)
+            setBenchmarkComparison(benchmarkComparisonData)
 
         } catch (error) {
             console.error(
@@ -940,46 +948,95 @@ function DashboardPage() {
 
                         <section className="dashboard-card dashboard-return-section">
 
-                            <div className="dashboard-history-header">
+                            <div className="dashboard-return-header">
 
-                                <div>
+                                <h2>Rentabilidade ponderada</h2>
 
-                                    <h2>Rentabilidade ponderada</h2>
+                                <div className="dashboard-return-controls">
 
                                     <p>
                                         Desempenho da carteira neutralizando compras e vendas e considerando os proventos recebidos.
                                     </p>
 
-                                </div>
+                                    <div className="dashboard-return-periods">
 
-                                <div className="dashboard-history-periods">
+                                        {historyPeriods.map(
+                                            (period) => (
 
-                                    {historyPeriods.map(
-                                        (period) => (
+                                                <button
+                                                    key={period.value}
+                                                    type="button"
+                                                    className={
+                                                        returnPeriod === period.value
+                                                            ? 'active'
+                                                            : ''
+                                                    }
+                                                    disabled={returnLoading}
+                                                    onClick={() =>
+                                                        handleReturnPeriodChange(
+                                                            period.value,
+                                                        )
+                                                    }
+                                                >
+                                                    {period.label}
+                                                </button>
+                                            ),
+                                        )}
 
-                                            <button
-                                                key={period.value}
-                                                type="button"
-                                                className={
-                                                    returnPeriod === period.value
-                                                        ? 'active'
-                                                        : ''
-                                                }
-                                                disabled={returnLoading}
-                                                onClick={() =>
-                                                    handleReturnPeriodChange(
-                                                        period.value,
-                                                    )
-                                                }
-                                            >
-                                                {period.label}
-                                            </button>
-                                        ),
-                                    )}
+                                    </div>
 
                                 </div>
 
                             </div>
+
+                            {returnPeriod === 'CUSTOM' && (
+
+                                <div className="dashboard-return-custom">
+
+                                    <div>
+                                        <label htmlFor="return-start-date">
+                                            Data inicial
+                                        </label>
+
+                                        <input
+                                            id="return-start-date"
+                                            type="date"
+                                            value={returnCustomStartDate}
+                                            onChange={(event) =>
+                                                setReturnCustomStartDate(
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="return-end-date">
+                                            Data final
+                                        </label>
+
+                                        <input
+                                            id="return-end-date"
+                                            type="date"
+                                            value={returnCustomEndDate}
+                                            onChange={(event) =>
+                                                setReturnCustomEndDate(
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        disabled={returnLoading}
+                                        onClick={handleCustomReturnSubmit}
+                                    >
+                                        Aplicar
+                                    </button>
+
+                                </div>
+                            )}
 
                             <div className="dashboard-metrics">
 
@@ -1072,71 +1129,26 @@ function DashboardPage() {
 
                             </div>
 
-                            {returnPeriod === 'CUSTOM' && (
-
-                                <div className="dashboard-history-custom">
-
-                                    <div>
-                                        <label htmlFor="return-start-date">
-                                            Data inicial
-                                        </label>
-
-                                        <input
-                                            id="return-start-date"
-                                            type="date"
-                                            value={returnCustomStartDate}
-                                            onChange={(event) =>
-                                                setReturnCustomStartDate(
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label htmlFor="return-end-date">
-                                            Data final
-                                        </label>
-
-                                        <input
-                                            id="return-end-date"
-                                            type="date"
-                                            value={returnCustomEndDate}
-                                            onChange={(event) =>
-                                                setReturnCustomEndDate(
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        disabled={returnLoading}
-                                        onClick={handleCustomReturnSubmit}
-                                    >
-                                        Aplicar
-                                    </button>
-
-                                </div>
-                            )}
-
                             <div className="dashboard-return-chart">
                                 {returnLoading ? (
                                     <div className="dashboard-history-message">
                                         Carregando rentabilidade...
                                     </div>
-                                ) : !portfolioReturns || portfolioReturns.points.length === 0 ? (
+                                ) : benchmarkComparison.length === 0 ? (
                                     <div className="dashboard-history-message">
-                                        Nenhuma rentabilidade disponível.
+                                        Nenhuma comparação de rentabilidade disponível.
                                     </div>
                                 ) : (
                                     <ResponsiveContainer width="100%" height="100%">
                                         <LineChart
-                                            data={portfolioReturns.points.map((point) => ({
+                                            data={benchmarkComparison.map((point) => ({
                                                 ...point,
-                                                cumulativeReturnPercent:
-                                                    point.cumulativeReturn * 100,
+                                                portfolioReturnPercent:
+                                                    point.portfolioReturn * 100,
+                                                cdiReturnPercent:
+                                                    point.cdiReturn * 100,
+                                                ibovReturnPercent:
+                                                    point.ibovReturn * 100,
                                             }))}
                                             margin={{
                                                 top: 10,
@@ -1158,6 +1170,15 @@ function DashboardPage() {
 
                                             <YAxis
                                                 width={70}
+                                                allowDataOverflow
+                                                domain={[
+                                                    (dataMin: number) =>
+                                                        dataMin < 0
+                                                            ? Math.floor(dataMin)
+                                                            : 0,
+                                                    (dataMax: number) =>
+                                                        Math.ceil(dataMax * 1.05),
+                                                ]}
                                                 tickFormatter={(value) =>
                                                     `${formatPercentage(Number(value))}%`
                                                 }
@@ -1167,20 +1188,42 @@ function DashboardPage() {
                                                 labelFormatter={(value) =>
                                                     formatHistoryDate(String(value))
                                                 }
-                                                formatter={(value) => [
+                                                formatter={(value, name) => [
                                                     `${formatPercentage(Number(value))}%`,
-                                                    'Rentabilidade',
+                                                    String(name),
                                                 ]}
                                             />
 
+                                            <Legend />
+
                                             <Line
                                                 type="monotone"
-                                                dataKey="cumulativeReturnPercent"
-                                                name="Rentabilidade"
+                                                dataKey="portfolioReturnPercent"
+                                                name="Carteira"
                                                 stroke="#16834b"
                                                 strokeWidth={2.5}
                                                 dot={false}
                                                 activeDot={{ r: 5 }}
+                                            />
+
+                                            <Line
+                                                type="monotone"
+                                                dataKey="cdiReturnPercent"
+                                                name="CDI"
+                                                stroke="#173e6d"
+                                                strokeWidth={2}
+                                                dot={false}
+                                                activeDot={{ r: 4 }}
+                                            />
+
+                                            <Line
+                                                type="monotone"
+                                                dataKey="ibovReturnPercent"
+                                                name="IBOV"
+                                                stroke="#b7791f"
+                                                strokeWidth={2}
+                                                dot={false}
+                                                activeDot={{ r: 4 }}
                                             />
                                         </LineChart>
                                     </ResponsiveContainer>
