@@ -62,3 +62,15 @@ export async function registerB3Broker(
   )
   return data
 }
+
+/** Consulta catálogo confiável, sem cadastrar ativo. */
+export async function lookupB3Asset(api: Pick<AxiosInstance, 'get' | 'defaults'>, ticker: string): Promise<import('../types/b3Import').B3AssetCandidate> {
+  const { data } = await api.get<import('../types/b3Import').B3AssetCandidate>(b3Endpoint(api, 'assets/candidate'), { params: { ticker } })
+  return data
+}
+
+/** Só chama após confirmação explícita na interface; não importa negociações. */
+export async function registerB3Asset(api: Pick<AxiosInstance, 'post' | 'defaults'>, ticker: string): Promise<import('../types/b3Import').B3AssetRegistrationResponse> {
+  const { data } = await api.post<import('../types/b3Import').B3AssetRegistrationResponse>(b3Endpoint(api, 'assets/register'), { ticker })
+  return data
+}

@@ -59,3 +59,18 @@ export type B3BrokerRegistrationResponse = {
   brokerId: number
   brokerName: string
 }
+
+export type B3AssetCandidate = {
+  ticker: string
+  name: string
+  type: 'STOCK' | 'FII' | 'ETF'
+  exchange: string
+  assetId: number | null
+  requiresReview: boolean
+}
+
+export type B3AssetRegistrationResponse = {
+  ticker: string
+  assetId: number
+  created: boolean
+}

@@ -2,8 +2,9 @@ import { useCallback, useRef, useState } from 'react'
 import Header from '../components/Header'
 import B3ImportPreview from '../components/B3ImportPreview'
 import B3BrokerMatching from '../components/B3BrokerMatching'
+import B3AssetRegistration from '../components/B3AssetRegistration'
 import api from '../services/api'
-import { previewB3Spreadsheet, matchB3Spreadsheet, listB3BrokerOptions, confirmB3BrokerAlias, registerB3Broker } from '../services/b3ImportService'
+import { previewB3Spreadsheet, matchB3Spreadsheet, listB3BrokerOptions, confirmB3BrokerAlias, registerB3Broker, lookupB3Asset, registerB3Asset } from '../services/b3ImportService'
 import type { B3MatchResponse, B3BrokerOption, B3PreviewResponse } from '../types/b3Import'
 
 export default function B3ImportPage() {
@@ -62,6 +63,13 @@ export default function B3ImportPage() {
         await loadMatches(file)
     }, [file, loadMatches])
 
+    const confirmAsset = useCallback(async (ticker: string) => {
+        if (!file) throw new Error('Selecione novamente a planilha.')
+        const result = await registerB3Asset(api, ticker)
+        await loadMatches(file)
+        return result
+    }, [file, loadMatches])
+
     return (
         <>
             <Header />
@@ -80,6 +88,14 @@ export default function B3ImportPage() {
                         onRetry={() => void loadMatches(file)}
                         onConfirmAlias={saveAlias}
                         onRegisterBroker={registerBroker}
+                    />
+                )}
+                {file && (
+                    <B3AssetRegistration
+                        matches={matches}
+                        loading={pending}
+                        onLookup={(ticker) => lookupB3Asset(api, ticker)}
+                        onRegister={confirmAsset}
                     />
                 )}
             </main>

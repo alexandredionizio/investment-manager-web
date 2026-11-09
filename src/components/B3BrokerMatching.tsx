@@ -153,7 +153,7 @@ function B3BrokerMatchingContent({ matches, brokers, loading, error, onRetry, on
             </>
           ) : <p>Não há instituições pendentes de associação neste arquivo.</p>}
           {unknownAssets.length > 0 && (
-            <p className="b3-matching-note"><strong>Ativos ainda não identificados:</strong> {unknownAssets.join(', ')}. A identificação de novos ativos será tratada na próxima etapa; não há cadastro automático nesta tela.</p>
+            <p className="b3-matching-note"><strong>Ativos ainda não identificados:</strong> {unknownAssets.join(', ')}. Use a seção de identificação de ativos abaixo para consultar e confirmar os cadastros.</p>
           )}
           {success && <p role="status" className="b3-match-success">{success}</p>}
           {saveError && <p role="alert" className="b3-match-error">{saveError}</p>}
