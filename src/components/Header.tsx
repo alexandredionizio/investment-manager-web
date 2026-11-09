@@ -38,64 +38,15 @@ function Header() {
 
                 <div className={`header-navigation ${menuOpen ? 'open' : ''}`}>
                     <nav className="main-nav">
-                        <NavLink
-                            to="/dashboard"
-                            onClick={handleNavigation}
-                            className={({ isActive }) =>
-                                `nav-link ${isActive ? 'active' : ''}`
-                            }
-                        >
-                            Dashboard
-                        </NavLink>
-
-                        <NavLink
-                            to="/portfolios"
-                            onClick={handleNavigation}
-                            className={({ isActive }) =>
-                                `nav-link ${isActive ? 'active' : ''}`
-                            }
-                        >
-                            Carteiras
-                        </NavLink>
-
-                        <NavLink
-                            to="/transactions"
-                            onClick={handleNavigation}
-                            className={({ isActive }) =>
-                                `nav-link ${isActive ? 'active' : ''}`
-                            }
-                        >
-                            Transações
-                        </NavLink>
-
-                        <NavLink
-                            to="/incomes"
-                            onClick={handleNavigation}
-                            className={({ isActive }) =>
-                                `nav-link ${isActive ? 'active' : ''}`
-                            }
-                        >
-                            Proventos
-                        </NavLink>
-
-                        <NavLink
-                            to="/assets"
-                            onClick={handleNavigation}
-                            className={({ isActive }) =>
-                                `nav-link ${isActive ? 'active' : ''}`
-                            }
-                        >
-                            Ativos
-                        </NavLink>
+                        <NavLink to="/dashboard" onClick={handleNavigation} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>Dashboard</NavLink>
+                        <NavLink to="/portfolios" onClick={handleNavigation} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>Carteiras</NavLink>
+                        <NavLink to="/transactions" onClick={handleNavigation} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>Transações</NavLink>
+                        <NavLink to="/incomes" onClick={handleNavigation} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>Proventos</NavLink>
+                        <NavLink to="/assets" onClick={handleNavigation} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>Ativos</NavLink>
+                        <NavLink to="/import/b3" onClick={handleNavigation} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>Importar B3</NavLink>
                     </nav>
 
-                    <button
-                        type="button"
-                        className="logout-button"
-                        onClick={handleLogout}
-                    >
-                        Sair
-                    </button>
+                    <button type="button" className="logout-button" onClick={handleLogout}>Sair</button>
                 </div>
             </div>
         </header>
