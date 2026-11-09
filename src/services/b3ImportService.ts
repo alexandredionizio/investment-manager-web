@@ -74,3 +74,17 @@ export async function registerB3Asset(api: Pick<AxiosInstance, 'post' | 'default
   const { data } = await api.post<import('../types/b3Import').B3AssetRegistrationResponse>(b3Endpoint(api, 'assets/register'), { ticker })
   return data
 }
+
+/** IM-041: analisa uma carteira, sem criar transações. */
+export async function reconcileB3Spreadsheet(
+  api: Pick<AxiosInstance, 'post' | 'defaults'>,
+  file: File,
+  portfolioId: number,
+): Promise<import('../types/b3Import').B3ReconciliationResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await api.post<import('../types/b3Import').B3ReconciliationResponse>(
+    b3Endpoint(api, 'reconcile'), formData, { params: { portfolioId } },
+  )
+  return data
+}
