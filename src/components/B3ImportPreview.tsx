@@ -9,9 +9,11 @@ const number = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 8 })
 
 export type B3ImportPreviewProps = {
   previewFile: (file: File) => Promise<B3PreviewResponse>
+  onPreviewLoaded?: (file: File, result: B3PreviewResponse) => void
+  onFileChanged?: () => void
 }
 
-export default function B3ImportPreview({ previewFile }: B3ImportPreviewProps) {
+export default function B3ImportPreview({ previewFile, onPreviewLoaded, onFileChanged }: B3ImportPreviewProps) {
   const [selected, setSelected] = useState<File | null>(null)
   const [preview, setPreview] = useState<B3PreviewResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -21,6 +23,7 @@ export default function B3ImportPreview({ previewFile }: B3ImportPreviewProps) {
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     requestId.current += 1
+    onFileChanged?.()
     const file = event.target.files?.[0] ?? null
     setSelected(file)
     setPreview(null)
@@ -40,7 +43,10 @@ export default function B3ImportPreview({ previewFile }: B3ImportPreviewProps) {
     setPreview(null)
     try {
       const result = await previewFile(selected)
-      if (requestId.current === currentId) setPreview(result)
+      if (requestId.current === currentId) {
+        setPreview(result)
+        onPreviewLoaded?.(selected, result)
+      }
     } catch (failure: unknown) {
       if (requestId.current !== currentId) return
       const responseMessage = extractErrorMessage(failure)
