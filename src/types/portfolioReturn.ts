@@ -8,6 +8,6 @@ export interface PortfolioReturnResponse {
     portfolioId: number;
     startDate: string;
     endDate: string;
-    totalReturn: number;
+    totalReturn: number | null;
     points: PortfolioReturnSeriesPoint[];
 }

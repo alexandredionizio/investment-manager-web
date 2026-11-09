@@ -1,6 +1,6 @@
 export interface BenchmarkComparisonPointResponse {
     date: string
     portfolioReturn: number
-    cdiReturn: number
-    ibovReturn: number
+    cdiReturn: number | null
+    ibovReturn: number | null
 }

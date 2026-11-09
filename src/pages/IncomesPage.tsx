@@ -402,6 +402,7 @@ function IncomesPage() {
                                 <tr>
                                     <th>Data-base</th>
                                     <th>Pagamento</th>
+                                    <th>Situação</th>
                                     <th>Ativo</th>
                                     <th>Tipo</th>
                                     <th>Quantidade</th>
@@ -426,6 +427,8 @@ function IncomesPage() {
                                                 income.paymentDate,
                                             )}
                                         </td>
+
+                                        <td>{income.received ? 'Recebido' : 'Pagamento futuro'}</td>
 
                                         <td className="ticker">
                                             {income.assetTicker}

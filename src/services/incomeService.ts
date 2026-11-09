@@ -4,12 +4,19 @@ import type {
     IncomeResponse,
 } from '../types/income'
 
+function checkedIncome(income: IncomeResponse): IncomeResponse {
+    if (!income || typeof income.received !== 'boolean' || !Number.isFinite(income.totalAmount)) {
+        throw new Error('Resposta inválida de proventos do servidor.')
+    }
+    return income
+}
+
 export async function findAllIncomes(): Promise<IncomeResponse[]> {
     const response = await api.get<IncomeResponse[]>(
         '/incomes',
     )
 
-    return response.data
+    return response.data.map(checkedIncome)
 }
 
 export async function findIncomesByPortfolio(
@@ -19,7 +26,7 @@ export async function findIncomesByPortfolio(
         `/incomes/portfolio/${portfolioId}`,
     )
 
-    return response.data
+    return response.data.map(checkedIncome)
 }
 
 export async function findIncomeById(
@@ -29,7 +36,7 @@ export async function findIncomeById(
         `/incomes/${incomeId}`,
     )
 
-    return response.data
+    return checkedIncome(response.data)
 }
 
 export async function createIncome(
@@ -40,5 +47,5 @@ export async function createIncome(
         data,
     )
 
-    return response.data
+    return checkedIncome(response.data)
 }

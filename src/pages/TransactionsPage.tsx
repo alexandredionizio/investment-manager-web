@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 
 import Header from '../components/Header'
 import { findAllPortfolios } from '../services/portfolioService'
-import { findAllAssets } from '../services/assetService'
+import InstrumentPicker from '../components/InstrumentPicker'
+import { createPurchase } from '../services/instrumentService'
+import type { InstrumentSelection } from '../services/instrumentService'
 import { findAllBrokers } from '../services/brokerService'
 import {
     createTransaction,
@@ -11,7 +13,6 @@ import {
 } from '../services/transactionService'
 
 import type { PortfolioResponse } from '../types/portfolio'
-import type { AssetResponse } from '../types/asset'
 import type { BrokerResponse } from '../types/broker'
 import type {
     TransactionResponse,
@@ -27,14 +28,15 @@ interface ApiErrorResponse {
 function TransactionsPage() {
     const [portfolios, setPortfolios] = useState<PortfolioResponse[]>([])
     const [transactions, setTransactions] = useState<TransactionResponse[]>([])
-    const [assets, setAssets] = useState<AssetResponse[]>([])
+    const [instrument, setInstrument] = useState<InstrumentSelection | null>(null)
+    const [optionsVersion, setOptionsVersion] = useState(0)
+    const historyVersion = useRef(0)
     const [brokers, setBrokers] = useState<BrokerResponse[]>([])
 
     const [selectedPortfolioId, setSelectedPortfolioId] =
         useState<number | null>(null)
 
     const [transactionPortfolioId, setTransactionPortfolioId] = useState('')
-    const [assetId, setAssetId] = useState('')
     const [brokerId, setBrokerId] = useState('')
     const [transactionType, setTransactionType] =
         useState<TransactionType>('BUY')
@@ -50,22 +52,16 @@ function TransactionsPage() {
             try {
                 const [
                     portfoliosData,
-                    assetsData,
                     brokersData,
                 ] = await Promise.all([
                     findAllPortfolios(),
-                    findAllAssets(),
                     findAllBrokers(),
                 ])
 
                 setPortfolios(portfoliosData)
-                setAssets(assetsData)
                 setBrokers(brokersData)
-            } catch (error) {
-                console.error(
-                    'Erro ao carregar dados da página de transações:',
-                    error,
-                )
+            } catch {
+                setTransactionMessage('Não foi possível carregar carteiras e corretoras.')
             }
         }
 
@@ -73,21 +69,24 @@ function TransactionsPage() {
     }, [])
 
     async function loadTransactions(portfolioId: number) {
+        const version = ++historyVersion.current
         try {
             const data =
                 await findTransactionsByPortfolio(portfolioId)
+            if (version !== historyVersion.current) return
 
             setSelectedPortfolioId(portfolioId)
             setTransactions(data)
-        } catch (error) {
-            console.error(
-                'Erro ao buscar transações da carteira:',
-                error,
-            )
+        } catch {
+            if (version === historyVersion.current) setTransactionMessage('Não foi possível carregar o histórico.')
         }
     }
 
     function handlePortfolioChange(portfolioId: string) {
+        historyVersion.current++
+        setInstrument(null)
+        setSelectedPortfolioId(null)
+        setTransactions([])
         setTransactionPortfolioId(portfolioId)
         setTransactionMessage('')
 
@@ -105,6 +104,7 @@ function TransactionsPage() {
     ) {
         event.preventDefault()
 
+        if (!instrument) { setTransactionMessage('Selecione um instrumento elegível.'); return }
         setTransactionMessage('')
         setTransactionLoading(true)
 
@@ -112,15 +112,20 @@ function TransactionsPage() {
             const portfolioIdNumber =
                 Number(transactionPortfolioId)
 
-            await createTransaction({
+            const data = {
                 portfolioId: portfolioIdNumber,
-                assetId: Number(assetId),
                 brokerId: Number(brokerId),
-                type: transactionType,
                 quantity: Number(quantity),
                 unitPrice: Number(unitPrice),
                 transactionDate,
-            })
+            }
+            if (transactionType === 'BUY' && 'ticker' in instrument) {
+                await createPurchase({ ...data, ticker: instrument.ticker })
+            } else if ('assetId' in instrument) {
+                await createTransaction({ ...data, assetId: instrument.assetId, type: transactionType })
+            } else { throw new Error('Seleção incompatível') }
+            setInstrument(null)
+            setOptionsVersion(version => version + 1)
 
             setTransactionMessage(
                 'Transação registrada com sucesso.',
@@ -131,11 +136,6 @@ function TransactionsPage() {
 
             await loadTransactions(portfolioIdNumber)
         } catch (error) {
-            console.error(
-                'Erro ao registrar transação:',
-                error,
-            )
-
             if (axios.isAxiosError<ApiErrorResponse>(error)) {
                 const apiMessage =
                     error.response?.data?.message
@@ -311,35 +311,9 @@ function TransactionsPage() {
                     <h2>Nova transação</h2>
 
                     <form onSubmit={handleCreateTransaction}>
-                        <div>
-                            <label htmlFor="asset">
-                                Ativo
-                            </label>
-
-                            <select
-                                id="asset"
-                                value={assetId}
-                                onChange={(event) =>
-                                    setAssetId(
-                                        event.target.value,
-                                    )
-                                }
-                                required
-                            >
-                                <option value="">
-                                    Selecione um ativo
-                                </option>
-
-                                {assets.map((asset) => (
-                                    <option
-                                        key={asset.id}
-                                        value={asset.id}
-                                    >
-                                        {asset.ticker} - {asset.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        <fieldset disabled={transactionLoading}>
+                        <InstrumentPicker key={[transactionPortfolioId, transactionDate, transactionType, optionsVersion].join(':')}
+                            type={transactionType} portfolioId={transactionPortfolioId} date={transactionDate} onChange={setInstrument} />
 
                         <div>
                             <label htmlFor="broker">
@@ -379,12 +353,7 @@ function TransactionsPage() {
                             <select
                                 id="transactionType"
                                 value={transactionType}
-                                onChange={(event) =>
-                                    setTransactionType(
-                                        event.target
-                                            .value as TransactionType,
-                                    )
-                                }
+                                onChange={(event) => { setInstrument(null); setTransactionType(event.target.value as TransactionType) }}
                             >
                                 <option value="BUY">
                                     Compra
@@ -445,20 +414,17 @@ function TransactionsPage() {
                                 id="transactionDate"
                                 type="date"
                                 value={transactionDate}
-                                onChange={(event) =>
-                                    setTransactionDate(
-                                        event.target.value,
-                                    )
-                                }
+                                onChange={(event) => { setInstrument(null); setTransactionDate(event.target.value) }}
                                 required
                             />
                         </div>
 
+                        </fieldset>
                         <button
                             type="submit"
                             disabled={
                                 transactionLoading ||
-                                !transactionPortfolioId
+                                !transactionPortfolioId || !instrument
                             }
                         >
                             {transactionLoading

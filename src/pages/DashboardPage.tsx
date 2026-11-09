@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
     CartesianGrid,
@@ -12,14 +12,15 @@ import {
 } from 'recharts'
 
 import Header from '../components/Header'
+import ValuationDetails from '../components/ValuationDetails'
+import { summarizeValuations, benchmarkAvailability } from '../services/valuation'
 
-import { findAllPortfolios } from '../services/portfolioService'
-import { findMarketPositions } from '../services/positionService'
-import { findIncomesByPortfolio } from '../services/incomeService'
-import { findRealizedResultsByPortfolio } from '../services/realizedResultService'
-import { findPortfolioHistory } from '../services/portfolioHistoryService'
-import { findPortfolioReturns } from '../services/portfolioReturnService'
-import { findBenchmarkComparison } from '../services/benchmarkComparisonService'
+import {
+    findDashboardPortfolios, findDashboardHistory as findPortfolioHistory,
+    findDashboardComparison as findBenchmarkComparison, loadDashboardData,
+    dashboardErrorMessage, dashboardSectionLabels, dashboardSectionKeys,
+} from '../services/dashboardService'
+import type { DashboardData, DashboardIssues } from '../services/dashboardService'
 
 import type { PortfolioResponse } from '../types/portfolio'
 import type { PositionMarketResponse } from '../types/position'
@@ -114,216 +115,87 @@ function DashboardPage() {
     const [error, setError] =
         useState('')
 
-    useEffect(() => {
+    const [issues, setIssues] = useState<DashboardIssues>({})
+    const [emptyPortfolio, setEmptyPortfolio] = useState<boolean | null>(null)
+    const [dashboardReady, setDashboardReady] = useState(false)
+    const [pendingSections, setPendingSections] = useState<Partial<Record<keyof DashboardData, boolean>>>({})
+    const loadVersion = useRef(0)
 
-        async function loadDashboard() {
-
-            try {
-
-                setLoading(true)
-                setError('')
-
-                const portfoliosData =
-                    await findAllPortfolios()
-
-                setPortfolios(portfoliosData)
-
-                if (portfoliosData.length === 0) {
-                    return
-                }
-
-                const firstPortfolioId =
-                    portfoliosData[0].id
-
-                setSelectedPortfolioId(
-                    firstPortfolioId,
-                )
-
-                const [
-                    positionsData,
-                    incomesData,
-                    realizedResultsData,
-                    historyData,
-                    returnsData,
-                    benchmarkComparisonData,
-                    totalReturnsData,
-                    lastTwelveMonthsReturnsData,
-                ] = await Promise.all([
-                    findMarketPositions(
-                        firstPortfolioId,
-                    ),
-                    findIncomesByPortfolio(
-                        firstPortfolioId,
-                    ),
-                    findRealizedResultsByPortfolio(
-                        firstPortfolioId,
-                    ),
-                    findPortfolioHistory(
-                        firstPortfolioId,
-                        'ONE_MONTH',
-                    ),
-                    findPortfolioReturns(
-                        firstPortfolioId,
-                        'ONE_MONTH',
-                    ),
-                    findBenchmarkComparison(
-                        firstPortfolioId,
-                        'ONE_MONTH',
-                    ),
-                    findPortfolioReturns(
-                        firstPortfolioId,
-                        'ALL',
-                    ),
-                    findPortfolioReturns(
-                        firstPortfolioId,
-                        'ONE_YEAR',
-                    ),
-                ])
-
-                setPositions(positionsData)
-                setIncomes(incomesData)
-                setRealizedResults(realizedResultsData)
-                setPortfolioHistory(historyData)
-                setBenchmarkComparison(benchmarkComparisonData)
-                setTotalPortfolioReturns(totalReturnsData)
-                setLastTwelveMonthsReturns(lastTwelveMonthsReturnsData)
-                setLastMonthReturns(returnsData)
-
-            } catch (error) {
-
-                console.error(
-                    'Erro ao carregar dashboard:',
-                    error,
-                )
-
-                setError(
-                    'Não foi possível carregar os dados do dashboard.',
-                )
-
-            } finally {
-
-                setLoading(false)
+    async function loadPortfolio(portfolioId: number,
+        historySelection: Parameters<typeof loadDashboardData>[1],
+        returnSelection: Parameters<typeof loadDashboardData>[2]) {
+        const version = ++loadVersion.current
+        setLoading(false)
+        setDashboardReady(true)
+        setError('')
+        setIssues({})
+        setPendingSections(Object.fromEntries(dashboardSectionKeys.map(key => [key, true])))
+        setEmptyPortfolio(null)
+        setSelectedPortfolioId(portfolioId)
+        setPositions([])
+        setIncomes([])
+        setRealizedResults([])
+        setPortfolioHistory(null)
+        setBenchmarkComparison([])
+        setTotalPortfolioReturns(null)
+        setLastTwelveMonthsReturns(null)
+        setLastMonthReturns(null)
+        try {
+            await loadDashboardData(portfolioId, historySelection, returnSelection, data => {
+                if (version !== loadVersion.current) return
+                if (data.positions) setPositions(data.positions.data ?? [])
+                if (data.incomes) setIncomes(data.incomes.data ?? [])
+                if (data.realized) setRealizedResults(data.realized.data ?? [])
+                if (data.history) setPortfolioHistory(data.history.data)
+                if (data.comparison) setBenchmarkComparison(data.comparison.data ?? [])
+                if (data.total) setTotalPortfolioReturns(data.total.data)
+                if (data.year) setLastTwelveMonthsReturns(data.year.data)
+                if (data.month) setLastMonthReturns(data.month.data)
+                if (data.transactions) setEmptyPortfolio(data.transactions.data === null ? null : data.transactions.data.length === 0)
+                setIssues(current => ({ ...current, ...Object.fromEntries(Object.entries(data).map(([key, value]) => [key, value.issue])) }))
+                setPendingSections(current => ({ ...current, ...Object.fromEntries(Object.keys(data).map(key => [key, false])) }))
+            })
+        } catch (error) {
+            if (version === loadVersion.current) {
+                // Late updates from other requests must not restore data after an authorization failure.
+                loadVersion.current++
+                setError(dashboardErrorMessage(error))
+                setDashboardReady(false)
             }
         }
+    }
 
+    useEffect(() => {
+        let active = true
+        async function loadDashboard() {
+            try {
+                const data = await findDashboardPortfolios()
+                if (!active) return
+                setPortfolios(data)
+                if (data.length > 0) {
+                    await loadPortfolio(data[0].id, { period: 'ONE_MONTH' }, { period: 'ONE_MONTH' })
+                } else {
+                    setLoading(false)
+                }
+            } catch (error) {
+                if (active) {
+                    setError(dashboardErrorMessage(error))
+                    setLoading(false)
+                }
+            }
+        }
         loadDashboard()
-
+        return () => { active = false; loadVersion.current++ }
     }, [])
 
-    async function handlePortfolioChange(
-        portfolioId: number,
-    ) {
-
-        try {
-
-            setLoading(true)
-            setError('')
-
-            setSelectedPortfolioId(portfolioId)
-
-            const historyPromise =
-                historyPeriod === 'CUSTOM' &&
-                customStartDate &&
-                customEndDate
-                    ? findPortfolioHistory(
-                        portfolioId,
-                        'CUSTOM',
-                        customStartDate,
-                        customEndDate,
-                    )
-                    : findPortfolioHistory(
-                        portfolioId,
-                        historyPeriod === 'CUSTOM'
-                            ? 'ONE_MONTH'
-                            : historyPeriod,
-                    )
-
-            const benchmarkComparisonPromise =
-                returnPeriod === 'CUSTOM' &&
-                returnCustomStartDate &&
-                returnCustomEndDate
-                    ? findBenchmarkComparison(
-                        portfolioId,
-                        'CUSTOM',
-                        returnCustomStartDate,
-                        returnCustomEndDate,
-                    )
-                    : findBenchmarkComparison(
-                        portfolioId,
-                        returnPeriod === 'CUSTOM'
-                            ? 'ONE_MONTH'
-                            : returnPeriod,
-                    )
-
-            const [
-                positionsData,
-                incomesData,
-                realizedResultsData,
-                historyData,
-                benchmarkComparisonData,
-                totalReturnsData,
-                lastTwelveMonthsReturnsData,
-                lastMonthReturnsData,
-            ] = await Promise.all([
-                findMarketPositions(portfolioId),
-                findIncomesByPortfolio(portfolioId),
-                findRealizedResultsByPortfolio(
-                    portfolioId,
-                ),
-                historyPromise,
-                benchmarkComparisonPromise,
-                findPortfolioReturns(
-                    portfolioId,
-                    'ALL',
-                ),
-                findPortfolioReturns(
-                    portfolioId,
-                    'ONE_YEAR',
-                ),
-                findPortfolioReturns(
-                    portfolioId,
-                    'ONE_MONTH',
-                ),
-            ])
-
-            setPositions(positionsData)
-            setIncomes(incomesData)
-            setRealizedResults(realizedResultsData)
-            setPortfolioHistory(historyData)
-            setBenchmarkComparison(benchmarkComparisonData)
-            setTotalPortfolioReturns(totalReturnsData)
-            setLastTwelveMonthsReturns(lastTwelveMonthsReturnsData)
-            setLastMonthReturns(lastMonthReturnsData)
-
-            if (
-                historyPeriod === 'CUSTOM' &&
-                (!customStartDate || !customEndDate)
-            ) {
-                setHistoryPeriod('ONE_MONTH')
-            }
-
-            if (
-                returnPeriod === 'CUSTOM' &&
-                (!returnCustomStartDate || !returnCustomEndDate)
-            ) {
-                setReturnPeriod('ONE_MONTH')
-            }
-
-        } catch (error) {
-
-            console.error(
-                'Erro ao carregar carteira:',
-                error,
-            )
-
-            setError(
-                'Não foi possível carregar os dados da carteira.',
-            )
-
-        } finally {
-
-            setLoading(false)
-        }
+    async function handlePortfolioChange(portfolioId: number) {
+        const nextHistoryPeriod = historyPeriod === 'CUSTOM' && (!customStartDate || !customEndDate) ? 'ONE_MONTH' : historyPeriod
+        const nextReturnPeriod = returnPeriod === 'CUSTOM' && (!returnCustomStartDate || !returnCustomEndDate) ? 'ONE_MONTH' : returnPeriod
+        setHistoryPeriod(nextHistoryPeriod)
+        setReturnPeriod(nextReturnPeriod)
+        await loadPortfolio(portfolioId,
+            { period: nextHistoryPeriod, startDate: customStartDate, endDate: customEndDate },
+            { period: nextReturnPeriod, startDate: returnCustomStartDate, endDate: returnCustomEndDate })
     }
 
     async function handleHistoryPeriodChange(
@@ -342,9 +214,13 @@ function DashboardPage() {
             return
         }
 
+        setHistoryPeriod(period)
+
         try {
 
             setHistoryLoading(true)
+            setPortfolioHistory(null)
+            setIssues(current => ({ ...current, history: null }))
             setError('')
 
             const historyData =
@@ -357,16 +233,7 @@ function DashboardPage() {
             setPortfolioHistory(historyData)
 
         } catch (error) {
-
-            console.error(
-                'Erro ao carregar histórico da carteira:',
-                error,
-            )
-
-            setError(
-                'Não foi possível carregar o histórico da carteira.',
-            )
-
+            setIssues(current => ({ ...current, history: dashboardErrorMessage(error) }))
         } finally {
 
             setHistoryLoading(false)
@@ -400,6 +267,8 @@ function DashboardPage() {
         try {
 
             setHistoryLoading(true)
+            setPortfolioHistory(null)
+            setIssues(current => ({ ...current, history: null }))
             setError('')
 
             const historyData =
@@ -413,16 +282,7 @@ function DashboardPage() {
             setPortfolioHistory(historyData)
 
         } catch (error) {
-
-            console.error(
-                'Erro ao carregar período personalizado:',
-                error,
-            )
-
-            setError(
-                'Não foi possível carregar o período personalizado.',
-            )
-
+            setIssues(current => ({ ...current, history: dashboardErrorMessage(error) }))
         } finally {
 
             setHistoryLoading(false)
@@ -443,8 +303,12 @@ function DashboardPage() {
             return
         }
 
+        setReturnPeriod(period)
+
         try {
             setReturnLoading(true)
+            setBenchmarkComparison([])
+            setIssues(current => ({ ...current, comparison: null }))
             setError('')
 
             const benchmarkComparisonData =
@@ -457,15 +321,7 @@ function DashboardPage() {
             setBenchmarkComparison(benchmarkComparisonData)
 
         } catch (error) {
-            console.error(
-                'Erro ao carregar rentabilidade da carteira:',
-                error,
-            )
-
-            setError(
-                'Não foi possível carregar a rentabilidade da carteira.',
-            )
-
+            setIssues(current => ({ ...current, comparison: dashboardErrorMessage(error) }))
         } finally {
             setReturnLoading(false)
         }
@@ -493,6 +349,8 @@ function DashboardPage() {
 
         try {
             setReturnLoading(true)
+            setBenchmarkComparison([])
+            setIssues(current => ({ ...current, comparison: null }))
             setError('')
 
             const benchmarkComparisonData =
@@ -506,28 +364,20 @@ function DashboardPage() {
             setBenchmarkComparison(benchmarkComparisonData)
 
         } catch (error) {
-            console.error(
-                'Erro ao carregar período personalizado da rentabilidade:',
-                error,
-            )
-
-            setError(
-                'Não foi possível carregar o período personalizado da rentabilidade.',
-            )
-
+            setIssues(current => ({ ...current, comparison: dashboardErrorMessage(error) }))
         } finally {
             setReturnLoading(false)
         }
     }
 
     const totalWeightedReturn =
-        (totalPortfolioReturns?.totalReturn ?? 0) * 100
+        totalPortfolioReturns?.totalReturn == null ? null : totalPortfolioReturns.totalReturn * 100
 
     const lastTwelveMonthsWeightedReturn =
-        (lastTwelveMonthsReturns?.totalReturn ?? 0) * 100
+        lastTwelveMonthsReturns?.totalReturn == null ? null : lastTwelveMonthsReturns.totalReturn * 100
 
     const lastMonthWeightedReturn =
-        (lastMonthReturns?.totalReturn ?? 0) * 100
+        lastMonthReturns?.totalReturn == null ? null : lastMonthReturns.totalReturn * 100
 
     const monthlyReturnRows = (() => {
 
@@ -589,30 +439,14 @@ function DashboardPage() {
             .sort((a, b) => b.year - a.year)
     })()
 
-    const totalCurrentValue =
-        positions.reduce(
-            (total, position) =>
-                total + position.currentValue,
-            0,
-        )
-
-    const totalCost =
-        positions.reduce(
-            (total, position) =>
-                total + position.totalCost,
-            0,
-        )
-
-    const totalProfitLoss =
-        totalCurrentValue - totalCost
-
-    const profitabilityPercent =
-        totalCost > 0
-            ? (totalProfitLoss / totalCost) * 100
-            : 0
+    const valuation = summarizeValuations(positions)
+    const totalCurrentValue = valuation.value
+    const totalCost = valuation.totalCost
+    const totalProfitLoss = valuation.profit
+    const profitabilityPercent = valuation.percent
 
     const totalIncomes =
-        incomes.reduce(
+        incomes.filter(income => income.received).reduce(
             (total, income) =>
                 total + income.totalAmount,
             0,
@@ -625,7 +459,20 @@ function DashboardPage() {
             0,
         )
 
-    function formatCurrency(value: number) {
+    function metricValue(key: keyof DashboardIssues, value: string) {
+        return pendingSections[key] ? 'Carregando...' : issues[key] ? 'Indisponível' : value
+    }
+
+    function returnValue(key: keyof DashboardIssues, value: number | null) {
+        return metricValue(key, value === null ? 'Sem dados suficientes' : (value >= 0 ? '+' : '') + formatPercentage(value) + '%')
+    }
+
+    function returnClass(value: number | null, key?: keyof DashboardIssues) {
+        return value === null || (key && (issues[key] || pendingSections[key])) ? '' : value >= 0 ? 'positive' : 'negative'
+    }
+
+    function formatCurrency(value: number | null) {
+        if (value === null) return 'Indisponível'
 
         return new Intl.NumberFormat(
             'pt-BR',
@@ -659,7 +506,8 @@ function DashboardPage() {
         ).format(value)
     }
 
-    function formatPercentage(value: number) {
+    function formatPercentage(value: number | null) {
+        if (value === null) return 'Indisponível'
 
         return new Intl.NumberFormat(
             'pt-BR',
@@ -737,6 +585,7 @@ function DashboardPage() {
 
                             <select
                                 id="dashboard-portfolio"
+                                disabled={loading || historyLoading || returnLoading}
                                 value={
                                     selectedPortfolioId ??
                                     ''
@@ -769,12 +618,12 @@ function DashboardPage() {
 
                 {error && (
 
-                    <div className="dashboard-error">
+                    <div className="dashboard-error" role="alert">
                         {error}
                     </div>
                 )}
 
-                {portfolios.length === 0 ? (
+                {loading ? <p role="status">Carregando dados da carteira...</p> : portfolios.length === 0 ? (error ? null : (
 
                     <section className="dashboard-card dashboard-return-section">
 
@@ -784,25 +633,28 @@ function DashboardPage() {
 
                     </section>
 
-                ) : (
+                )) : !dashboardReady ? null : (
                     <>
+                        {emptyPortfolio === true && <p role="status">Esta carteira ainda não possui transações. As métricas serão exibidas conforme houver dados.</p>}
+                        {Object.entries(issues).filter(([, issue]) => issue).map(([key, issue]) => (
+                            <p key={key} role="alert" className="dashboard-error">
+                                {dashboardSectionLabels[key as keyof DashboardIssues]}: {issue}
+                            </p>
+                        ))}
 
                         <div className="dashboard-metrics">
 
                             <article className="dashboard-metric-card">
 
                                 <span>
-                                    Patrimônio atual
+                                    {valuation.partial ? 'Patrimônio parcialmente avaliado' : 'Patrimônio atual'}
                                 </span>
 
-                                <strong>
-                                    {formatCurrency(
-                                        totalCurrentValue,
-                                    )}
-                                </strong>
+                                <strong>{metricValue('positions', formatCurrency(totalCurrentValue))}</strong>
 
                                 <small>
-                                    Valor atual das posições
+                                    {valuation.partial ? 'Subtotal das posições avaliadas. Custo sem avaliação: ' + formatCurrency(valuation.missingCost) : 'Valor atual das posições'}
+                                    {valuation.estimated && ' • Inclui remuneração contratual estimada.'}
                                 </small>
 
                             </article>
@@ -813,24 +665,10 @@ function DashboardPage() {
                                     Resultado não realizado
                                 </span>
 
-                                <strong
-                                    className={
-                                        totalProfitLoss >= 0
-                                            ? 'positive'
-                                            : 'negative'
-                                    }
-                                >
-                                    {totalProfitLoss >= 0
-                                        ? '+'
-                                        : ''}
-
-                                    {formatCurrency(
-                                        totalProfitLoss,
-                                    )}
-                                </strong>
+                                <strong className={returnClass(totalProfitLoss, 'positions')}>{metricValue('positions', (totalProfitLoss !== null && totalProfitLoss >= 0 ? '+' : '') + formatCurrency(totalProfitLoss))}</strong>
 
                                 <small>
-                                    Ganho ou perda das posições atuais
+                                    {valuation.partial ? 'Resultado apenas das posições avaliadas' : 'Ganho ou perda das posições atuais'}
                                 </small>
 
                             </article>
@@ -841,21 +679,7 @@ function DashboardPage() {
                                     Resultado realizado
                                 </span>
 
-                                <strong
-                                    className={
-                                        totalRealizedProfitLoss >= 0
-                                            ? 'positive'
-                                            : 'negative'
-                                    }
-                                >
-                                    {totalRealizedProfitLoss >= 0
-                                        ? '+'
-                                        : ''}
-
-                                    {formatCurrency(
-                                        totalRealizedProfitLoss,
-                                    )}
-                                </strong>
+                                <strong className={returnClass(totalRealizedProfitLoss, 'realized')}>{metricValue('realized', (totalRealizedProfitLoss >= 0 ? '+' : '') + formatCurrency(totalRealizedProfitLoss))}</strong>
 
                                 <small>
                                     Ganho ou perda nas vendas
@@ -869,22 +693,7 @@ function DashboardPage() {
                                     Resultado sobre custo
                                 </span>
 
-                                <strong
-                                    className={
-                                        profitabilityPercent >= 0
-                                            ? 'positive'
-                                            : 'negative'
-                                    }
-                                >
-                                    {profitabilityPercent >= 0
-                                        ? '+'
-                                        : ''}
-
-                                    {formatPercentage(
-                                        profitabilityPercent,
-                                    )}
-                                    %
-                                </strong>
+                                <strong className={returnClass(profitabilityPercent, 'positions')}>{returnValue('positions', profitabilityPercent)}</strong>
 
                                 <small>
                                     Variação das posições atuais sobre o custo
@@ -898,11 +707,7 @@ function DashboardPage() {
                                     Custo investido
                                 </span>
 
-                                <strong>
-                                    {formatCurrency(
-                                        totalCost,
-                                    )}
-                                </strong>
+                                <strong>{metricValue('positions', formatCurrency(totalCost))}</strong>
 
                                 <small>
                                     Capital das posições atuais
@@ -916,14 +721,10 @@ function DashboardPage() {
                                     Proventos recebidos
                                 </span>
 
-                                <strong className="positive">
-                                    {formatCurrency(
-                                        totalIncomes,
-                                    )}
-                                </strong>
+                                <strong>{metricValue('incomes', formatCurrency(totalIncomes))}</strong>
 
                                 <small>
-                                    Proventos registrados
+                                    Pagamentos até hoje
                                 </small>
 
                             </article>
@@ -934,9 +735,7 @@ function DashboardPage() {
                                     Ativos
                                 </span>
 
-                                <strong>
-                                    {positions.length}
-                                </strong>
+                                <strong>{metricValue('positions', String(positions.length))}</strong>
 
                                 <small>
                                     Posições na carteira
@@ -971,7 +770,7 @@ function DashboardPage() {
                                                             ? 'active'
                                                             : ''
                                                     }
-                                                    disabled={returnLoading}
+                                                    disabled={returnLoading || pendingSections.comparison}
                                                     onClick={() =>
                                                         handleReturnPeriodChange(
                                                             period.value,
@@ -1029,7 +828,7 @@ function DashboardPage() {
 
                                     <button
                                         type="button"
-                                        disabled={returnLoading}
+                                        disabled={returnLoading || pendingSections.comparison}
                                         onClick={handleCustomReturnSubmit}
                                     >
                                         Aplicar
@@ -1046,21 +845,8 @@ function DashboardPage() {
                                         Rentabilidade total
                                     </span>
 
-                                    <strong
-                                        className={
-                                            totalWeightedReturn >= 0
-                                                ? 'positive'
-                                                : 'negative'
-                                        }
-                                    >
-                                        {totalWeightedReturn >= 0
-                                            ? '+'
-                                            : ''}
-
-                                        {formatPercentage(
-                                            totalWeightedReturn,
-                                        )}
-                                        %
+                                    <strong className={returnClass(totalWeightedReturn, 'total')}>
+                                        {returnValue('total', totalWeightedReturn)}
                                     </strong>
 
                                     <small>
@@ -1075,21 +861,8 @@ function DashboardPage() {
                                         Últimos 12 meses
                                     </span>
 
-                                    <strong
-                                        className={
-                                            lastTwelveMonthsWeightedReturn >= 0
-                                                ? 'positive'
-                                                : 'negative'
-                                        }
-                                    >
-                                        {lastTwelveMonthsWeightedReturn >= 0
-                                            ? '+'
-                                            : ''}
-
-                                        {formatPercentage(
-                                            lastTwelveMonthsWeightedReturn,
-                                        )}
-                                        %
+                                    <strong className={returnClass(lastTwelveMonthsWeightedReturn, 'year')}>
+                                        {returnValue('year', lastTwelveMonthsWeightedReturn)}
                                     </strong>
 
                                     <small>
@@ -1104,21 +877,8 @@ function DashboardPage() {
                                         Último mês
                                     </span>
 
-                                    <strong
-                                        className={
-                                            lastMonthWeightedReturn >= 0
-                                                ? 'positive'
-                                                : 'negative'
-                                        }
-                                    >
-                                        {lastMonthWeightedReturn >= 0
-                                            ? '+'
-                                            : ''}
-
-                                        {formatPercentage(
-                                            lastMonthWeightedReturn,
-                                        )}
-                                        %
+                                    <strong className={returnClass(lastMonthWeightedReturn, 'month')}>
+                                        {returnValue('month', lastMonthWeightedReturn)}
                                     </strong>
 
                                     <small>
@@ -1129,12 +889,14 @@ function DashboardPage() {
 
                             </div>
 
+                            {benchmarkAvailability(benchmarkComparison.map(p => p.cdiReturn), 'CDI') && <p>{benchmarkAvailability(benchmarkComparison.map(p => p.cdiReturn), 'CDI')}</p>}
+                            {benchmarkAvailability(benchmarkComparison.map(p => p.ibovReturn), 'IBOV') && <p>{benchmarkAvailability(benchmarkComparison.map(p => p.ibovReturn), 'IBOV')}</p>}
                             <div className="dashboard-return-chart">
-                                {returnLoading ? (
+                                {returnLoading || pendingSections.comparison ? (
                                     <div className="dashboard-history-message">
                                         Carregando rentabilidade...
                                     </div>
-                                ) : benchmarkComparison.length === 0 ? (
+                                ) : issues.comparison ? (<p role="alert">{issues.comparison}</p>) : benchmarkComparison.length === 0 ? (
                                     <div className="dashboard-history-message">
                                         Nenhuma comparação de rentabilidade disponível.
                                     </div>
@@ -1146,9 +908,9 @@ function DashboardPage() {
                                                 portfolioReturnPercent:
                                                     point.portfolioReturn * 100,
                                                 cdiReturnPercent:
-                                                    point.cdiReturn * 100,
+                                                    point.cdiReturn === null ? null : point.cdiReturn * 100,
                                                 ibovReturnPercent:
-                                                    point.ibovReturn * 100,
+                                                    point.ibovReturn === null ? null : point.ibovReturn * 100,
                                             }))}
                                             margin={{
                                                 top: 10,
@@ -1209,6 +971,7 @@ function DashboardPage() {
                                             <Line
                                                 type="monotone"
                                                 dataKey="cdiReturnPercent"
+                                                connectNulls={false}
                                                 name="CDI"
                                                 stroke="#173e6d"
                                                 strokeWidth={2}
@@ -1219,6 +982,7 @@ function DashboardPage() {
                                             <Line
                                                 type="monotone"
                                                 dataKey="ibovReturnPercent"
+                                                connectNulls={false}
                                                 name="IBOV"
                                                 stroke="#b7791f"
                                                 strokeWidth={2}
@@ -1239,7 +1003,7 @@ function DashboardPage() {
                                     </p>
                                 </div>
 
-                                {monthlyReturnRows.length === 0 ? (
+                                {pendingSections.total ? <p role="status">Carregando rentabilidade mensal...</p> : issues.total ? (<p role="alert">{issues.total}</p>) : monthlyReturnRows.length === 0 ? (
                                     <div className="dashboard-history-message">
                                         Nenhuma rentabilidade mensal disponível.
                                     </div>
@@ -1350,7 +1114,7 @@ function DashboardPage() {
                                                         : ''
                                                 }
                                                 disabled={
-                                                    historyLoading
+                                                    historyLoading || pendingSections.history
                                                 }
                                                 onClick={() =>
                                                     handleHistoryPeriodChange(
@@ -1411,7 +1175,7 @@ function DashboardPage() {
 
                                     <button
                                         type="button"
-                                        disabled={historyLoading}
+                                        disabled={historyLoading || pendingSections.history}
                                         onClick={
                                             handleCustomHistorySubmit
                                         }
@@ -1422,13 +1186,13 @@ function DashboardPage() {
                                 </div>
                             )}
 
-                            {historyLoading ? (
+                            {historyLoading || pendingSections.history ? (
 
                                 <div className="dashboard-history-message">
                                     Carregando histórico...
                                 </div>
 
-                            ) : !portfolioHistory ||
+                            ) : issues.history ? (<p role="alert">{issues.history}</p>) : !portfolioHistory ||
                             portfolioHistory.points.length === 0 ? (
 
                                 <div className="dashboard-history-message">
@@ -1535,13 +1299,13 @@ function DashboardPage() {
 
                             </div>
 
-                            {loading ? (
+                            {pendingSections.positions ? (
 
                                 <p>
                                     Carregando posições...
                                 </p>
 
-                            ) : positions.length === 0 ? (
+                            ) : issues.positions ? (<p role="alert">{issues.positions}</p>) : positions.length === 0 ? (
 
                                 <p>
                                     Nenhuma posição encontrada.
@@ -1555,8 +1319,7 @@ function DashboardPage() {
                                         (position) => {
 
                                             const isPositive =
-                                                position.profitLoss >=
-                                                0
+                                                position.profitLoss !== null && position.profitLoss >= 0
 
                                             return (
 
@@ -1585,7 +1348,7 @@ function DashboardPage() {
 
                                                         <div
                                                             className={
-                                                                isPositive
+                                                                position.profitLoss === null ? 'position-profit' : isPositive
                                                                     ? 'position-profit positive'
                                                                     : 'position-profit negative'
                                                             }
@@ -1603,13 +1366,14 @@ function DashboardPage() {
                                                                 {formatPercentage(
                                                                     position.profitabilityPercent,
                                                                 )}
-                                                                %
+                                                                {position.profitabilityPercent === null ? '' : '%'}
                                                             </strong>
 
                                                         </div>
 
                                                     </div>
 
+                                                    <ValuationDetails position={position} />
                                                     <div className="position-metrics">
 
                                                         <div className="position-metric">
@@ -1690,7 +1454,7 @@ function DashboardPage() {
 
                                                             <strong
                                                                 className={
-                                                                    isPositive
+                                                                    position.profitLoss === null ? '' : isPositive
                                                                         ? 'positive'
                                                                         : 'negative'
                                                                 }

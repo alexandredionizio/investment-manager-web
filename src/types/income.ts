@@ -20,6 +20,7 @@ export interface IncomeResponse {
     type: IncomeType
     amountPerUnit: number
     quantity: number
+    received: boolean
     totalAmount: number
     baseDate: string
     paymentDate: string

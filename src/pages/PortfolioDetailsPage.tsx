@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import Header from '../components/Header'
+import ValuationDetails from '../components/ValuationDetails'
+import ValuationContractForm from '../components/ValuationContractForm'
+import { summarizeValuations } from '../services/valuation'
 import { findPortfolioById } from '../services/portfolioService'
-import { findMarketPositions } from '../services/positionService'
+import { findMarketPositions, findPositions } from '../services/positionService'
+import { dashboardErrorMessage } from '../services/dashboardService'
 import type { PortfolioResponse } from '../types/portfolio'
-import type { PositionMarketResponse } from '../types/position'
+import type { PositionMarketResponse, PositionResponse } from '../types/position'
 
 function PortfolioDetailsPage() {
     const { id } = useParams()
+    const [error, setError] = useState('')
+    const [marketIssue, setMarketIssue] = useState('')
+    const [accounting, setAccounting] = useState<PositionResponse[] | null>(null)
 
     const [portfolio, setPortfolio] =
         useState<PortfolioResponse | null>(null)
@@ -16,41 +23,58 @@ function PortfolioDetailsPage() {
         useState<PositionMarketResponse[]>([])
 
     useEffect(() => {
+        let cancelled = false
         async function loadPortfolio() {
             if (!id) {
                 return
             }
 
+            setError('')
+            setMarketIssue('')
+            setAccounting(null)
+            setPortfolio(null)
+            setPositions([])
             const portfolioId = Number(id)
 
             try {
                 const portfolioData =
                     await findPortfolioById(portfolioId)
 
-                const positionsData =
-                    await findMarketPositions(portfolioId)
-
-                setPortfolio(portfolioData)
-                setPositions(positionsData)
+                try {
+                    const positionsData = await findMarketPositions(portfolioId)
+                    if (cancelled) return
+                    setPositions(positionsData)
+                } catch (marketError) {
+                    let accountingData: PositionResponse[] | null = null
+                    try { accountingData = await findPositions(portfolioId) } catch { /* Keep absence explicit. */ }
+                    if (cancelled) return
+                    setAccounting(accountingData)
+                    setMarketIssue(dashboardErrorMessage(marketError))
+                }
+                if (!cancelled) setPortfolio(portfolioData)
             } catch (error) {
                 console.error(
                     'Erro ao carregar carteira:',
                     error,
                 )
+                if (!cancelled) setError(dashboardErrorMessage(error))
             }
         }
 
         loadPortfolio()
+        return () => { cancelled = true }
     }, [id])
 
-    function formatCurrency(value: number) {
+    function formatCurrency(value: number | null) {
+        if (value === null) return 'Indisponível'
         return value.toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL',
         })
     }
 
-    function formatPercent(value: number) {
+    function formatPercent(value: number | null) {
+        if (value === null) return 'Indisponível'
         return `${value.toLocaleString('pt-BR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
@@ -68,7 +92,7 @@ function PortfolioDetailsPage() {
             <Header />
 
             <main className="dashboard-container">
-                {portfolio === null ? (
+                {error ? (<p role="alert">{error}</p>) : portfolio === null ? (
                     <p>Carregando carteira...</p>
                 ) : (
                     <>
@@ -81,14 +105,26 @@ function PortfolioDetailsPage() {
 
                         <section className="dashboard-card">
                             <h2>Posições da carteira</h2>
+                            {summarizeValuations(positions).partial && <p>Patrimônio parcialmente avaliado. Posições sem preço mantêm seu custo contábil.</p>}
 
-                            {positions.length === 0 ? (
+                            {marketIssue ? <>
+                                <p role="alert">{marketIssue}</p>
+                                <p>Preço atual, valor de mercado e rentabilidade: indisponíveis.</p>
+                                {accounting === null ? <p>Dados contábeis indisponíveis.</p> : accounting.length === 0
+                                    ? <p>Nenhuma posição contábil encontrada.</p>
+                                    : accounting.map(position => <article key={position.assetId} className="position-card">
+                                        <h3>{position.assetTicker}</h3>
+                                        <p>Quantidade: {formatQuantity(position.quantity)}</p>
+                                        <p>Preço médio: {formatCurrency(position.averagePrice)}</p>
+                                        <p>Custo total: {formatCurrency(position.totalCost)}</p>
+                                    </article>)}
+                            </> : positions.length === 0 ? (
                                 <p>Nenhuma posição encontrada.</p>
                             ) : (
                                 <div className="positions-grid">
                                     {positions.map((position) => {
                                         const isPositive =
-                                            position.profitLoss >= 0
+                                            position.profitLoss !== null && position.profitLoss >= 0
 
                                         return (
                                             <article
@@ -113,7 +149,7 @@ function PortfolioDetailsPage() {
 
                                                         <strong
                                                             className={
-                                                                isPositive
+                                                                position.profitLoss === null ? '' : isPositive
                                                                     ? 'positive'
                                                                     : 'negative'
                                                             }
@@ -128,6 +164,10 @@ function PortfolioDetailsPage() {
                                                     </div>
                                                 </div>
 
+                                                <ValuationDetails position={position} />
+                                                {(position.assetType === 'FIXED_INCOME' || position.assetType === 'TREASURE') && <ValuationContractForm
+                                                    portfolioId={Number(id)} assetId={position.assetId} assetType={position.assetType}
+                                                    onSaved={async () => setPositions(await findMarketPositions(Number(id)))} />}
                                                 <div className="position-metrics">
                                                     <div className="position-metric">
                                                         <span>
@@ -196,7 +236,7 @@ function PortfolioDetailsPage() {
 
                                                         <strong
                                                             className={
-                                                                isPositive
+                                                                position.profitLoss === null ? '' : isPositive
                                                                     ? 'positive'
                                                                     : 'negative'
                                                             }

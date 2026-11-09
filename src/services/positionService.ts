@@ -18,7 +18,7 @@ export async function findMarketPositions(
     portfolioId: number,
 ): Promise<PositionMarketResponse[]> {
     const response = await api.get<PositionMarketResponse[]>(
-        `/portfolios/${portfolioId}/positions/market`,
+        `/portfolios/${portfolioId}/positions/valuations`,
     )
 
     return response.data

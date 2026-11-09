@@ -1,23 +1,28 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
+import { summarizeValuations } from '../services/valuation'
 import { findAllPortfolios } from '../services/portfolioService'
-import { findMarketPositions } from '../services/positionService'
+import { findMarketPositions, findPositions } from '../services/positionService'
+import { dashboardErrorMessage } from '../services/dashboardService'
 import type { PortfolioResponse } from '../types/portfolio'
 
 interface PortfolioSummary {
+    issue: string | null
     portfolio: PortfolioResponse
-    currentValue: number
-    totalCost: number
-    profitLoss: number
-    profitabilityPercent: number
-    assetsCount: number
+    currentValue: number | null
+    totalCost: number | null
+    profitLoss: number | null
+    profitabilityPercent: number | null
+    assetsCount: number | null
 }
 
 function PortfoliosPage() {
     const [portfolioSummaries, setPortfolioSummaries] =
         useState<PortfolioSummary[]>([])
 
+    const [error, setError] = useState('')
+    const [loading, setLoading] = useState(true)
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -27,36 +32,23 @@ function PortfoliosPage() {
 
                 const summaries = await Promise.all(
                     portfolios.map(async (portfolio) => {
-                        const positions =
-                            await findMarketPositions(portfolio.id)
-
-                        const currentValue = positions.reduce(
-                            (total, position) =>
-                                total + position.currentValue,
-                            0,
-                        )
-
-                        const totalCost = positions.reduce(
-                            (total, position) =>
-                                total + position.totalCost,
-                            0,
-                        )
-
-                        const profitLoss =
-                            currentValue - totalCost
-
-                        const profitabilityPercent =
-                            totalCost > 0
-                                ? (profitLoss / totalCost) * 100
-                                : 0
-
-                        return {
-                            portfolio,
-                            currentValue,
-                            totalCost,
-                            profitLoss,
-                            profitabilityPercent,
-                            assetsCount: positions.length,
+                        try {
+                            const positions = await findMarketPositions(portfolio.id)
+                            const summary = summarizeValuations(positions)
+                            return { portfolio, currentValue: summary.value, totalCost: summary.totalCost, profitLoss: summary.profit,
+                                profitabilityPercent: summary.percent, assetsCount: positions.length,
+                                issue: summary.partial ? 'Patrimônio parcialmente avaliado: subtotal e resultado apenas das posições avaliadas. Custo sem avaliação: ' + formatCurrency(summary.missingCost)
+                                    : summary.estimated ? 'Inclui remuneração contratual estimada.' : null }
+                        } catch (marketError) {
+                            let totalCost: number | null = null
+                            let assetsCount: number | null = null
+                            try {
+                                const accounting = await findPositions(portfolio.id)
+                                totalCost = accounting.reduce((sum, p) => sum + p.totalCost, 0)
+                                assetsCount = accounting.length
+                            } catch { /* Accounting unavailable remains absent, never zero. */ }
+                            return { portfolio, currentValue: null, profitLoss: null, profitabilityPercent: null,
+                                totalCost, assetsCount, issue: dashboardErrorMessage(marketError) }
                         }
                     }),
                 )
@@ -67,6 +59,9 @@ function PortfoliosPage() {
                     'Erro ao buscar carteiras:',
                     error,
                 )
+                setError(dashboardErrorMessage(error))
+            } finally {
+                setLoading(false)
             }
         }
 
@@ -77,14 +72,16 @@ function PortfoliosPage() {
         navigate(`/portfolios/${portfolioId}`)
     }
 
-    function formatCurrency(value: number) {
+    function formatCurrency(value: number | null) {
+        if (value === null) return "Indisponível"
         return value.toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL',
         })
     }
 
-    function formatPercent(value: number) {
+    function formatPercent(value: number | null) {
+        if (value === null) return "Indisponível"
         return value.toLocaleString('pt-BR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
@@ -108,7 +105,7 @@ function PortfoliosPage() {
                 <section className="dashboard-card">
                     <h2>Minhas carteiras</h2>
 
-                    {portfolioSummaries.length === 0 ? (
+                    {loading ? (<p>Carregando carteiras...</p>) : error ? (<p role="alert">{error}</p>) : portfolioSummaries.length === 0 ? (
                         <p>Nenhuma carteira encontrada.</p>
                     ) : (
                         <div className="portfolio-summary-list">
@@ -142,20 +139,18 @@ function PortfoliosPage() {
 
                                             <strong
                                                 className={
-                                                    summary.profitabilityPercent >=
-                                                    0
+                                                    (summary.profitabilityPercent !== null && summary.profitabilityPercent >= 0)
                                                         ? 'positive'
                                                         : 'negative'
                                                 }
                                             >
-                                                {summary.profitabilityPercent >=
-                                                0
+                                                {(summary.profitabilityPercent !== null && summary.profitabilityPercent >= 0)
                                                     ? '+'
                                                     : ''}
                                                 {formatPercent(
                                                     summary.profitabilityPercent,
                                                 )}
-                                                %
+                                                {summary.profitabilityPercent === null ? '' : '%'}
                                             </strong>
                                         </div>
                                     </div>
@@ -192,12 +187,12 @@ function PortfoliosPage() {
 
                                             <strong
                                                 className={
-                                                    summary.profitLoss >= 0
+                                                    (summary.profitLoss !== null && summary.profitLoss >= 0)
                                                         ? 'positive'
                                                         : 'negative'
                                                 }
                                             >
-                                                {summary.profitLoss >= 0
+                                                {(summary.profitLoss !== null && summary.profitLoss >= 0)
                                                     ? '+'
                                                     : ''}
                                                 {formatCurrency(
@@ -212,11 +207,12 @@ function PortfoliosPage() {
                                             </span>
 
                                             <strong>
-                                                {summary.assetsCount}
+                                                {summary.assetsCount ?? 'Indisponível'}
                                             </strong>
                                         </div>
                                     </div>
 
+                                    {summary.issue && <p role="alert">{summary.issue}</p>}
                                     <div className="portfolio-summary-footer">
                                         <button
                                             type="button"

@@ -13,8 +13,15 @@ export interface PositionMarketResponse {
     averagePrice: number
     totalCost: number
 
-    currentPrice: number
-    currentValue: number
-    profitLoss: number
-    profitabilityPercent: number
+    assetType?: import('./asset').AssetType
+    valuationStatus?: 'AVAILABLE' | 'ESTIMATED' | 'UNAVAILABLE'
+    valuationMethod?: 'MARKET' | 'CONTRACTUAL' | null
+    referenceTime?: string | null
+    source?: string | null
+    reason?: string | null
+    netValue?: number | null
+    currentPrice: number | null
+    currentValue: number | null
+    profitLoss: number | null
+    profitabilityPercent: number | null
 }

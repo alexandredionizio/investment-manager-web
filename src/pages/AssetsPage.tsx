@@ -75,7 +75,12 @@ function AssetsPage() {
                 </div>
 
                 <section className="dashboard-card">
-                    <h2>Ativos disponíveis</h2>
+                    <h2>Ativos reconhecidos</h2>
+                    <p>
+                        Esta página consulta os ativos reconhecidos, inclusive os mantidos para preservar o histórico.
+                        Para comprar ações, FIIs ou ETFs B3, pesquise o instrumento na tela Transações.
+                        A presença nesta lista não garante elegibilidade para novas compras.
+                    </p>
 
                     {loading ? (
                         <p>Carregando ativos...</p>
