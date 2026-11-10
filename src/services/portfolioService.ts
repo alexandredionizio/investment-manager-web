@@ -25,3 +25,7 @@ export async function renamePortfolio(id: number, name: string): Promise<Portfol
     const response = await api.put<PortfolioResponse>(`/portfolios/${id}/name`, { name: name.trim() })
     return response.data
 }
+
+export async function deletePortfolio(id: number): Promise<void> {
+    await api.delete(`/portfolios/${id}`)
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { createPortfolio, renamePortfolio } from '../services/portfolioService'
-import { getSelectedPortfolioId, saveSelectedPortfolioId } from '../services/selectedPortfolio'
+import { createPortfolio, renamePortfolio, deletePortfolio } from '../services/portfolioService'
+import { getSelectedPortfolioId, saveSelectedPortfolioId, clearSelectedPortfolioId } from '../services/selectedPortfolio'
 
 import {
     CartesianGrid,
@@ -125,8 +125,10 @@ function DashboardPage() {
     const loadVersion = useRef(0)
     const [portfolioAction, setPortfolioAction] = useState<'create' | 'rename' | null>(null)
     const [portfolioMenuOpen, setPortfolioMenuOpen] = useState(false)
-    const [portfolioActionsId, setPortfolioActionsId] = useState<number | null>(null)
+    const [portfolioActionsOpen, setPortfolioActionsOpen] = useState(false)
     const [renameTargetId, setRenameTargetId] = useState<number | null>(null)
+    const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null)
+    const [deleteConfirmation, setDeleteConfirmation] = useState('')
     const [portfolioName, setPortfolioName] = useState('')
     const [portfolioSaving, setPortfolioSaving] = useState(false)
     const [portfolioActionError, setPortfolioActionError] = useState('')
@@ -201,6 +203,58 @@ function DashboardPage() {
         return () => { active = false; loadVersion.current++ }
     }, [])
 
+    async function submitPortfolioDeletion(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+        const target = portfolios.find(p => p.id === deleteTargetId)
+        if (!target || deleteConfirmation !== target.name || portfolioSaving) return
+        setPortfolioSaving(true)
+        setPortfolioActionError('')
+        try {
+            await deletePortfolio(target.id)
+        } catch {
+            setPortfolioActionError('Não foi possível excluir a carteira. Nenhum dado foi removido da interface.')
+            setPortfolioSaving(false)
+            return
+        }
+
+        const remaining = portfolios.filter(p => p.id !== target.id)
+        setPortfolios(remaining)
+        setDeleteTargetId(null)
+        setDeleteConfirmation('')
+        setPortfolioActionsOpen(false)
+        setPortfolioAction(null)
+        setPortfolioMenuOpen(false)
+        setPortfolioNotice(`Carteira "${target.name}" excluída.`)
+        try {
+            if (selectedPortfolioId === target.id) {
+                // Descarta respostas atrasadas da carteira excluída.
+                loadVersion.current++
+                clearSelectedPortfolioId()
+                if (remaining.length > 0) {
+                    await handlePortfolioChange(remaining[0].id)
+                } else {
+                    setSelectedPortfolioId(null)
+                    setPositions([])
+                    setIncomes([])
+                    setRealizedResults([])
+                    setPortfolioHistory(null)
+                    setBenchmarkComparison([])
+                    setTotalPortfolioReturns(null)
+                    setLastTwelveMonthsReturns(null)
+                    setLastMonthReturns(null)
+                    setIssues({})
+                    setError('')
+                    setEmptyPortfolio(null)
+                    setPendingSections({})
+                    setDashboardReady(false)
+                    setLoading(false)
+                }
+            }
+        } finally {
+            setPortfolioSaving(false)
+        }
+    }
+
     async function handlePortfolioChange(portfolioId: number) {
         const nextHistoryPeriod = historyPeriod === 'CUSTOM' && (!customStartDate || !customEndDate) ? 'ONE_MONTH' : historyPeriod
         const nextReturnPeriod = returnPeriod === 'CUSTOM' && (!returnCustomStartDate || !returnCustomEndDate) ? 'ONE_MONTH' : returnPeriod
@@ -212,8 +266,9 @@ function DashboardPage() {
     }
 
     function startPortfolioAction(action: 'create' | 'rename', targetId?: number) {
+        setDeleteTargetId(null)
         setRenameTargetId(action === 'rename' ? (targetId ?? selectedPortfolioId) : null)
-        setPortfolioActionsId(null)
+        setPortfolioActionsOpen(false)
         setPortfolioAction(action)
         setPortfolioActionError('')
         setPortfolioNotice('')
@@ -632,71 +687,100 @@ function DashboardPage() {
 
                     <div className="dashboard-portfolio-selector" style={{ minWidth: 'min(320px, 90vw)', position: 'relative' }}>
                         <span id="dashboard-portfolio-label" style={{ display: 'block', marginBottom: '0.35rem' }}>Carteira</span>
-                        <button type="button" aria-label="Carteira" aria-expanded={portfolioMenuOpen}
-                            aria-controls="dashboard-portfolio-menu" disabled={loading || portfolioSaving}
-                            onClick={() => { setPortfolioMenuOpen(open => !open); setPortfolioActionsId(null); setPortfolioAction(null) }}
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', textAlign: 'left', padding: '0.75rem', border: '1px solid #bcc9db', borderRadius: '6px', background: '#fff', color: '#193a62', fontWeight: 600 }}>
-                            <span style={{ overflowWrap: 'anywhere' }}>
-                                {portfolios.find(p => p.id === selectedPortfolioId)?.name ?? 'Selecionar carteira'}
-                            </span>
-                            <span aria-hidden="true">▾</span>
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <button type="button" aria-label="Carteira" aria-expanded={portfolioMenuOpen}
+                                aria-controls="dashboard-portfolio-menu" disabled={loading || portfolioSaving}
+                                onClick={() => { setPortfolioMenuOpen(open => !open); setPortfolioActionsOpen(false) }}
+                                style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', textAlign: 'left', padding: '0.75rem', border: '1px solid #bcc9db', borderRadius: '6px', background: '#fff', color: '#193a62', fontWeight: 600 }}>
+                                <span style={{ overflowWrap: 'anywhere' }}>
+                                    {portfolios.find(p => p.id === selectedPortfolioId)?.name ?? 'Selecionar carteira'}
+                                </span>
+                                <span aria-hidden="true">▾</span>
+                            </button>
+                            <button type="button" aria-label="Ações da carteira selecionada" aria-expanded={portfolioActionsOpen}
+                                aria-controls="dashboard-portfolio-actions" title="Gerenciar carteira selecionada"
+                                disabled={loading || portfolioSaving || selectedPortfolioId === null}
+                                onClick={() => { setPortfolioActionsOpen(open => !open); setPortfolioMenuOpen(false) }}
+                                style={{ flexShrink: 0, padding: '0.5rem 0.7rem', border: '1px solid #bcc9db', borderRadius: '6px', background: '#fff', color: '#193a62', fontSize: '1.3rem', cursor: 'pointer' }}>⋯</button>
+                        </div>
                         {portfolioMenuOpen && (
                             <div id="dashboard-portfolio-menu" aria-label="Carteiras disponíveis"
-                                style={{ position: 'absolute', top: '100%', right: 0, width: 'max(100%, 320px)', maxWidth: '90vw', background: 'white', border: '1px solid #d5dfeb', boxShadow: '0 8px 22px #1b345322', borderRadius: '8px', zIndex: 20, padding: '0.4rem', maxHeight: 'min(70vh, 440px)', overflowY: 'auto' }}>
+                                style={{ position: 'absolute', top: '100%', left: 0, width: 'calc(100% - 3.2rem)', maxHeight: 'min(65vh, 380px)', overflowY: 'auto', background: 'white', border: '1px solid #d5dfeb', boxShadow: '0 8px 22px #1b345322', borderRadius: '8px', zIndex: 20, padding: '0.4rem' }}>
                                 {portfolios.map(p => (
-                                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', borderBottom: '1px solid #edf1f5' }}>
-                                        <button type="button" aria-label={`Selecionar ${p.name}`}
-                                            disabled={portfolioSaving}
-                                            onClick={() => {
-                                                setPortfolioMenuOpen(false)
-                                                setPortfolioActionsId(null)
-                                                setPortfolioNotice('')
-                                                setPortfolioActionError('')
-                                                void handlePortfolioChange(p.id)
-                                            }}
-                                            style={{ flex: 1, minWidth: 0, textAlign: 'left', whiteSpace: 'normal', overflowWrap: 'anywhere', border: 0, background: 'transparent', color: '#193a62', padding: '0.7rem', cursor: 'pointer' }}>
-                                            <span aria-hidden="true" style={{ marginRight: '0.5rem' }}>{p.id === selectedPortfolioId ? '✓' : ' '}</span>{p.name}
-                                        </button>
-                                        <div style={{ position: 'relative' }}>
-                                            <button type="button" aria-label={`Ações da carteira ${p.name}`}
-                                                aria-expanded={portfolioActionsId === p.id}
-                                                title="Ações da carteira" disabled={portfolioSaving}
-                                                onClick={() => setPortfolioActionsId(portfolioActionsId === p.id ? null : p.id)}
-                                                style={{ border: 0, background: 'transparent', color: '#193a62', fontSize: '1.5rem', padding: '0.25rem 0.65rem', cursor: 'pointer' }}>⋯</button>
-                                            {portfolioActionsId === p.id && (
-                                                <div style={{ position: 'absolute', right: 0, top: '100%', zIndex: 30, minWidth: '155px', padding: '0.3rem', border: '1px solid #d5dfeb', borderRadius: '6px', background: 'white', boxShadow: '0 6px 16px #1b345322' }}>
-                                                    <button type="button" aria-label={`Renomear ${p.name}`}
-                                                        onClick={() => startPortfolioAction('rename', p.id)}
-                                                        style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: 'transparent', color: '#193a62', padding: '0.6rem', cursor: 'pointer' }}>Renomear</button>
-                                                    <button type="button" disabled title="Disponível futuramente"
-                                                        style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: 'transparent', padding: '0.6rem', opacity: 0.5 }}>Excluir (em breve)</button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+                                    <button key={p.id} type="button" aria-label={`Selecionar ${p.name}`}
+                                        disabled={portfolioSaving}
+                                        onClick={() => {
+                                            setPortfolioMenuOpen(false)
+                                            setPortfolioNotice('')
+                                            setPortfolioActionError('')
+                                            void handlePortfolioChange(p.id)
+                                        }}
+                                        style={{ display: 'block', width: '100%', textAlign: 'left', whiteSpace: 'normal', overflowWrap: 'anywhere', border: 0, borderBottom: '1px solid #edf1f5', background: 'transparent', color: '#193a62', padding: '0.75rem', cursor: 'pointer' }}>
+                                        <span aria-hidden="true" style={{ marginRight: '0.5rem' }}>{p.id === selectedPortfolioId ? '✓' : ' '}</span>{p.name}
+                                    </button>
                                 ))}
-                                <button type="button" onClick={() => startPortfolioAction('create')}
+                                <button type="button" onClick={() => { startPortfolioAction('create'); setPortfolioMenuOpen(false) }}
                                     style={{ width: '100%', border: 0, textAlign: 'left', background: 'transparent', padding: '0.8rem', fontWeight: 600, color: '#193a62', cursor: 'pointer' }}>+ Criar nova carteira</button>
-                                {portfolioAction && (
-                                    <form onSubmit={submitPortfolioAction} style={{ borderTop: '1px solid #d5dfeb', padding: '0.5rem' }}>
-                                        <label htmlFor="dashboard-portfolio-name">
-                                            {portfolioAction === 'create' ? 'Nome da nova carteira' : 'Novo nome da carteira'}
-                                        </label>
-                                        <input id="dashboard-portfolio-name" maxLength={100} required autoFocus
-                                            value={portfolioName} disabled={portfolioSaving}
-                                            onChange={event => setPortfolioName(event.target.value)}
-                                            style={{ width: '100%', boxSizing: 'border-box' }} />
-                                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                            <button type="submit" disabled={portfolioSaving || !portfolioName.trim()}>
-                                                {portfolioAction === 'create' ? 'Criar e selecionar' : 'Salvar nome'}
-                                            </button>
-                                            <button type="button" disabled={portfolioSaving}
-                                                onClick={() => { setPortfolioAction(null); setPortfolioActionError('') }}>Cancelar</button>
-                                        </div>
-                                    </form>
-                                )}
-                                {portfolioActionError && <p role="alert">{portfolioActionError}</p>}
+                            </div>
+                        )}
+                        {portfolioActionsOpen && selectedPortfolioId !== null && (
+                            <div id="dashboard-portfolio-actions" aria-label="Gerenciar carteira"
+                                style={{ position: 'absolute', top: '100%', right: 0, width: '185px', padding: '0.35rem', border: '1px solid #d5dfeb', borderRadius: '8px', background: '#fff', boxShadow: '0 8px 22px #1b345322', zIndex: 21 }}>
+                                <button type="button" aria-label="Renomear carteira selecionada"
+                                    onClick={() => { startPortfolioAction('rename'); setPortfolioActionsOpen(false) }}
+                                    style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: 'transparent', padding: '0.7rem', color: '#193a62', cursor: 'pointer' }}>Renomear</button>
+                                <button type="button" aria-label="Excluir carteira selecionada"
+                                    onClick={() => { setDeleteTargetId(selectedPortfolioId); setDeleteConfirmation(''); setPortfolioActionsOpen(false); setPortfolioAction(null); setPortfolioActionError(''); setPortfolioNotice('') }}
+                                    style={{ display: 'block', width: '100%', textAlign: 'left', border: 0, background: 'transparent', padding: '0.7rem', color: '#9d2d2d', cursor: 'pointer' }}>Excluir</button>
+                            </div>
+                        )}
+                        {(deleteTargetId !== null || portfolioAction !== null) && (
+                            <div role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !portfolioSaving) { setDeleteTargetId(null); setDeleteConfirmation(''); setPortfolioAction(null); setPortfolioActionError('') } }}
+                                style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(12, 27, 46, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                                <div role="dialog" aria-modal="true" aria-label={deleteTargetId !== null ? 'Confirmar exclusão de carteira' : portfolioAction === 'create' ? 'Criar carteira' : 'Renomear carteira'}
+                                    style={{ width: 'min(100%, 440px)', maxHeight: '90vh', overflowY: 'auto', background: '#fff', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 20px 50px #0c1b2e55', color: '#193a62' }}>
+                                    {deleteTargetId !== null && portfolios.some(p => p.id === deleteTargetId) ? (
+                                        <form onSubmit={submitPortfolioDeletion}>
+                                            <h2 style={{ marginTop: 0 }}>Excluir carteira definitivamente?</h2>
+                                            <p style={{ lineHeight: 1.6 }}>
+                                                A carteira <strong>{portfolios.find(p => p.id === deleteTargetId)?.name}</strong> e todo o seu histórico,
+                                                incluindo transações, proventos, importações B3 e estornos, serão apagados permanentemente.
+                                                Esta ação não pode ser desfeita.
+                                            </p>
+                                            <label htmlFor="dashboard-delete-name">Digite o nome exato da carteira para confirmar</label>
+                                            <input id="dashboard-delete-name" autoFocus autoComplete="off"
+                                                value={deleteConfirmation} disabled={portfolioSaving}
+                                                onChange={event => setDeleteConfirmation(event.target.value)}
+                                                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: '0.5rem' }} />
+                                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                                                <button type="submit" disabled={portfolioSaving || deleteConfirmation !== portfolios.find(p => p.id === deleteTargetId)?.name}>
+                                                    Excluir definitivamente
+                                                </button>
+                                                <button type="button" disabled={portfolioSaving}
+                                                    onClick={() => { setDeleteTargetId(null); setDeleteConfirmation(''); setPortfolioActionError('') }}>Cancelar</button>
+                                            </div>
+                                        </form>
+                                    ) : portfolioAction !== null ? (
+                                        <form onSubmit={submitPortfolioAction}>
+                                            <h2 style={{ marginTop: 0 }}>{portfolioAction === 'create' ? 'Criar nova carteira' : 'Renomear carteira'}</h2>
+                                            <label htmlFor="dashboard-portfolio-name">
+                                                {portfolioAction === 'create' ? 'Nome da nova carteira' : 'Novo nome da carteira'}
+                                            </label>
+                                            <input id="dashboard-portfolio-name" maxLength={100} required autoFocus
+                                                value={portfolioName} disabled={portfolioSaving}
+                                                onChange={event => setPortfolioName(event.target.value)}
+                                                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: '0.5rem' }} />
+                                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                                                <button type="submit" disabled={portfolioSaving || !portfolioName.trim()}>
+                                                    {portfolioAction === 'create' ? 'Criar e selecionar' : 'Salvar nome'}
+                                                </button>
+                                                <button type="button" disabled={portfolioSaving}
+                                                    onClick={() => { setPortfolioAction(null); setPortfolioActionError('') }}>Cancelar</button>
+                                            </div>
+                                        </form>
+                                    ) : null}
+                                    {portfolioActionError && <p role="alert">{portfolioActionError}</p>}
+                                </div>
                             </div>
                         )}
                         {portfolioNotice && <p role="status">{portfolioNotice}</p>}

@@ -360,9 +360,8 @@ describe('IM-051: gerenciamento pelo seletor do Dashboard', () => {
         const rename = vi.spyOn(api, 'put').mockResolvedValue({ data: { ...portfolio, name: 'Nova' } })
         open()
         await ready()
-        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
-        fireEvent.click(screen.getByRole('button', { name: 'Ações da carteira Principal' }))
-        fireEvent.click(screen.getByRole('button', { name: 'Renomear Principal' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ações da carteira selecionada' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Renomear carteira selecionada' }))
         fireEvent.change(screen.getByLabelText('Novo nome da carteira'), { target: { value: ' Nova ' } })
         fireEvent.click(screen.getByRole('button', { name: 'Salvar nome' }))
         await waitFor(() => expect(rename).toHaveBeenCalledWith('/portfolios/1/name', { name: 'Nova' }))
@@ -373,12 +372,68 @@ describe('IM-051: gerenciamento pelo seletor do Dashboard', () => {
 })
 
 
-describe('IM-051: acoes por carteira', () => {
-    it('deixa Excluir desabilitado ate a IM-053', async () => {
+describe('IM-053: UX do gerenciamento de carteiras', () => {
+    it('mantém a lista de seleção livre das ações de gerenciamento', async () => {
         open()
         await ready()
         fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
-        fireEvent.click(screen.getByRole('button', { name: 'Ações da carteira Principal' }))
-        expect((screen.getByRole('button', { name: 'Excluir (em breve)' }) as HTMLButtonElement).disabled).toBe(true)
+        const menu = screen.getByLabelText('Carteiras disponíveis')
+        expect(menu.querySelectorAll('button').length).toBe(2)
+        expect(screen.queryByRole('button', { name: 'Excluir carteira selecionada' })).toBeNull()
+        expect(screen.getByRole('button', { name: 'Selecionar Principal' })).toBeTruthy()
+    })
+
+    it('abre a confirmação fora da lista rolável', async () => {
+        open()
+        await ready()
+        fireEvent.click(screen.getByRole('button', { name: 'Ações da carteira selecionada' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Excluir carteira selecionada' }))
+        const dialog = screen.getByRole('dialog', { name: 'Confirmar exclusão de carteira' })
+        expect(dialog.textContent).toContain('Excluir carteira definitivamente?')
+        expect(screen.queryByLabelText('Carteiras disponíveis')).toBeNull()
+    })
+})
+
+describe('IM-053: exclusão segura de carteiras', () => {
+    it('exige confirmação pelo nome exato antes de excluir', async () => {
+        const remove = vi.spyOn(api, 'delete').mockResolvedValue({ status: 204 })
+        open()
+        await ready()
+        fireEvent.click(screen.getByRole('button', { name: 'Ações da carteira selecionada' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Excluir carteira selecionada' }))
+        const confirm = screen.getByRole('button', { name: 'Excluir definitivamente' }) as HTMLButtonElement
+        expect(confirm.disabled).toBe(true)
+        fireEvent.change(screen.getByLabelText('Digite o nome exato da carteira para confirmar'), { target: { value: 'Outra' } })
+        expect(confirm.disabled).toBe(true)
+        expect(remove).not.toHaveBeenCalled()
+        fireEvent.change(screen.getByLabelText('Digite o nome exato da carteira para confirmar'), { target: { value: 'Principal' } })
+        expect(confirm.disabled).toBe(false)
+        fireEvent.click(confirm)
+        await waitFor(() => expect(remove).toHaveBeenCalledWith('/portfolios/1'))
+        await screen.findByText('Nenhuma carteira encontrada.')
+        expect(screen.queryByRole('button', { name: 'Selecionar Principal' })).toBeNull()
+    })
+
+    it('cancelamento não executa exclusão', async () => {
+        const remove = vi.spyOn(api, 'delete')
+        open()
+        await ready()
+        fireEvent.click(screen.getByRole('button', { name: 'Ações da carteira selecionada' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Excluir carteira selecionada' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+        expect(screen.queryByRole('button', { name: 'Excluir definitivamente' })).toBeNull()
+        expect(remove).not.toHaveBeenCalled()
+    })
+
+    it('falha no DELETE mantém a carteira disponível', async () => {
+        vi.spyOn(api, 'delete').mockRejectedValue(new Error('falha'))
+        open()
+        await ready()
+        fireEvent.click(screen.getByRole('button', { name: 'Ações da carteira selecionada' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Excluir carteira selecionada' }))
+        fireEvent.change(screen.getByLabelText('Digite o nome exato da carteira para confirmar'), { target: { value: 'Principal' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Excluir definitivamente' }))
+        expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Não foi possível excluir a carteira. Nenhum dado foi removido da interface.')
+        expect(screen.getByRole('button', { name: 'Carteira' }).textContent).toContain('Principal')
     })
 })
