@@ -69,3 +69,15 @@ it('keeps accounting positions in detail without invented market values', async 
     expect(screen.queryByText('Nenhuma posição encontrada.')).toBeNull()
     expect(screen.queryByText('0%')).toBeNull()
 })
+
+it('keeps the portfolios page focused on consultation rather than management', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async url => {
+        if (url === '/portfolios') return { data: [{ id: 3, name: 'Reserva' }] }
+        throw unavailable
+    })
+    render(<MemoryRouter><PortfoliosPage /></MemoryRouter>)
+    expect(await screen.findByText('Reserva')).toBeTruthy()
+    expect(screen.getByText('Crie ou renomeie carteiras pelo seletor do Dashboard.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Renomear/ })).toBeNull()
+    expect(screen.queryByLabelText('Nome da carteira')).toBeNull()
+})

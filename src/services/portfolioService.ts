@@ -16,3 +16,12 @@ export async function findPortfolioById(
 
     return response.data
 }
+export async function createPortfolio(name: string): Promise<PortfolioResponse> {
+    const response = await api.post<PortfolioResponse>('/portfolios', { name: name.trim() })
+    return response.data
+}
+
+export async function renamePortfolio(id: number, name: string): Promise<PortfolioResponse> {
+    const response = await api.put<PortfolioResponse>(`/portfolios/${id}/name`, { name: name.trim() })
+    return response.data
+}

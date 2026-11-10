@@ -248,7 +248,8 @@ describe('Dashboard data availability', () => {
         await ready()
         expect(card('Patrimônio atual').textContent).toContain('1.000,00')
         populated = false
-        fireEvent.change(screen.getByLabelText('Carteira'), { target: { value: '2' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Selecionar Nova' }))
         await screen.findByText(/Esta carteira ainda não possui transações/)
         expect(card('Patrimônio atual').textContent).toContain('0,00')
         expect(screen.queryByText('+0,00%')).toBeNull()
@@ -266,7 +267,7 @@ describe('Dashboard data availability', () => {
         expect(screen.getByText('Carregando rentabilidade...')).toBeTruthy()
         const comparisonSection = screen.getByRole('heading', { name: 'Rentabilidade ponderada' }).closest('section')!
         expect((within(comparisonSection).getByRole('button', { name: '3M' }) as HTMLButtonElement).disabled).toBe(true)
-        expect((screen.getByLabelText('Carteira') as HTMLSelectElement).disabled).toBe(false)
+        expect((screen.getByRole('button', { name: 'Carteira' }) as HTMLButtonElement).disabled).toBe(false)
         expect(screen.queryByText('Carregando dados da carteira...')).toBeNull()
         await act(async () => rejectComparison(httpError(500)))
         expect(screen.getAllByRole('alert').some(node => node.textContent?.includes('HTTP 500'))).toBe(true)
@@ -300,12 +301,13 @@ describe('Dashboard data availability', () => {
         open()
         await ready()
         populated = false
-        fireEvent.change(screen.getByLabelText('Carteira'), { target: { value: '2' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Selecionar Nova' }))
         await screen.findByText(/Esta carteira ainda não possui transações/)
         await act(async () => resolveComparison([comparison]))
         expect(screen.queryAllByTestId('chart')).toHaveLength(0)
         expect(screen.queryByText('+0,00%')).toBeNull()
-        expect((screen.getByLabelText('Carteira') as HTMLSelectElement).value).toBe('2')
+        expect(screen.getByRole('button', { name: 'Carteira' }).textContent).toContain('Nova')
     })
 })
 
@@ -336,4 +338,47 @@ it('labels mixed CDI availability accurately and keeps gaps in chart data', asyn
     const charts = screen.getAllByTestId('chart').map(p => p.textContent).join('')
     expect(charts).toContain('"cdiReturnPercent":null')
     expect(charts).toContain('"cdiReturnPercent":0.1')
+})
+
+describe('IM-051: gerenciamento pelo seletor do Dashboard', () => {
+    it('cria e seleciona uma carteira no proprio Dashboard', async () => {
+        const create = vi.spyOn(api, 'post').mockResolvedValue({ data: { id: 8, name: 'Reserva', description: '' } })
+        open()
+        await ready()
+        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
+        fireEvent.click(screen.getByRole('button', { name: '+ Criar nova carteira' }))
+        fireEvent.change(screen.getByLabelText('Nome da nova carteira'), { target: { value: ' Reserva ' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Criar e selecionar' }))
+        await waitFor(() => expect(create).toHaveBeenCalledWith('/portfolios', { name: 'Reserva' }))
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Carteira' }).textContent).toContain('Reserva'))
+        expect(screen.getByText('Carteira criada e selecionada.')).toBeTruthy()
+        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
+        expect(screen.getByRole('button', { name: 'Selecionar Reserva' })).toBeTruthy()
+    })
+
+    it('renomeia a carteira selecionada sem alterar sua identificacao', async () => {
+        const rename = vi.spyOn(api, 'put').mockResolvedValue({ data: { ...portfolio, name: 'Nova' } })
+        open()
+        await ready()
+        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ações da carteira Principal' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Renomear Principal' }))
+        fireEvent.change(screen.getByLabelText('Novo nome da carteira'), { target: { value: ' Nova ' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Salvar nome' }))
+        await waitFor(() => expect(rename).toHaveBeenCalledWith('/portfolios/1/name', { name: 'Nova' }))
+        expect(screen.getByRole('button', { name: 'Carteira' }).textContent).toContain('Nova')
+        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
+        expect(screen.getByRole('button', { name: 'Selecionar Nova' })).toBeTruthy()
+    })
+})
+
+
+describe('IM-051: acoes por carteira', () => {
+    it('deixa Excluir desabilitado ate a IM-053', async () => {
+        open()
+        await ready()
+        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Ações da carteira Principal' }))
+        expect((screen.getByRole('button', { name: 'Excluir (em breve)' }) as HTMLButtonElement).disabled).toBe(true)
+    })
 })

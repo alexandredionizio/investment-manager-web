@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import './Header.css'
+import { clearSelectedPortfolioId } from '../services/selectedPortfolio'
 
 function Header() {
     const navigate = useNavigate()
@@ -8,6 +9,7 @@ function Header() {
 
     function handleLogout() {
         localStorage.removeItem('token')
+        clearSelectedPortfolioId()
         setMenuOpen(false)
         navigate('/login')
     }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import { summarizeValuations } from '../services/valuation'
 import { findAllPortfolios } from '../services/portfolioService'
+import { getSelectedPortfolioId } from '../services/selectedPortfolio'
 import { findMarketPositions, findPositions } from '../services/positionService'
 import { dashboardErrorMessage } from '../services/dashboardService'
 import type { PortfolioResponse } from '../types/portfolio'
@@ -53,7 +54,9 @@ function PortfoliosPage() {
                     }),
                 )
 
-                setPortfolioSummaries(summaries)
+                const selectedId = getSelectedPortfolioId()
+                setPortfolioSummaries(summaries.sort((a, b) =>
+                    Number(b.portfolio.id === selectedId) - Number(a.portfolio.id === selectedId)))
             } catch (error) {
                 console.error(
                     'Erro ao buscar carteiras:',
@@ -104,6 +107,7 @@ function PortfoliosPage() {
 
                 <section className="dashboard-card">
                     <h2>Minhas carteiras</h2>
+                    <p>Crie ou renomeie carteiras pelo seletor do Dashboard.</p>
 
                     {loading ? (<p>Carregando carteiras...</p>) : error ? (<p role="alert">{error}</p>) : portfolioSummaries.length === 0 ? (
                         <p>Nenhuma carteira encontrada.</p>
@@ -120,9 +124,9 @@ function PortfoliosPage() {
                                                 Carteira
                                             </span>
 
-                                            <h3>
-                                                {summary.portfolio.name}
-                                            </h3>
+                                            <h3>{summary.portfolio.name}</h3>
+                                            {summary.portfolio.id === getSelectedPortfolioId() &&
+                                                <p>Carteira selecionada no Dashboard</p>}
 
                                             <p>
                                                 {
