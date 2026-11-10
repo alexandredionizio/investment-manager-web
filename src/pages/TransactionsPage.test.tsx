@@ -6,12 +6,12 @@ import AssetsPage from './AssetsPage'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findAllBrokers } from '../services/brokerService'
 import { findAllAssets } from '../services/assetService'
-import { createTransaction, deleteManualTransaction, findTransactionsByPortfolio } from '../services/transactionService'
+import { createTransaction, deleteManualTransaction, findTransactionsByPortfolio, findB3LinkedTransactions, findB3Reversals, reverseB3Transaction } from '../services/transactionService'
 import { createPurchase, searchInstruments, findSaleOptions } from '../services/instrumentService'
 vi.mock('../services/portfolioService', () => ({ findAllPortfolios: vi.fn() }))
 vi.mock('../services/brokerService', () => ({ findAllBrokers: vi.fn() }))
 vi.mock('../services/assetService', () => ({ findAllAssets: vi.fn() }))
-vi.mock('../services/transactionService', () => ({ createTransaction: vi.fn(), deleteManualTransaction: vi.fn(), findTransactionsByPortfolio: vi.fn() }))
+vi.mock('../services/transactionService', () => ({ createTransaction: vi.fn(), deleteManualTransaction: vi.fn(), findTransactionsByPortfolio: vi.fn(), findB3LinkedTransactions: vi.fn(), findB3Reversals: vi.fn(), reverseB3Transaction: vi.fn() }))
 vi.mock('../services/instrumentService', () => ({ createPurchase: vi.fn(), searchInstruments: vi.fn(), findSaleOptions: vi.fn() }))
 afterEach(cleanup)
 beforeEach(() => {
@@ -19,6 +19,8 @@ beforeEach(() => {
     vi.mocked(findAllPortfolios).mockResolvedValue([{ id: 1, name: 'Principal', description: '', createdAt: '2026-09-01T00:00:00' }, { id: 2, name: 'Outra', description: '', createdAt: '2026-09-01T00:00:00' }])
     vi.mocked(findAllBrokers).mockResolvedValue([{ id: 1, name: 'Corretora teste' }])
     vi.mocked(findTransactionsByPortfolio).mockResolvedValue([])
+    vi.mocked(findB3LinkedTransactions).mockResolvedValue([])
+    vi.mocked(findB3Reversals).mockResolvedValue([])
     vi.mocked(searchInstruments).mockResolvedValue({ items: [{ ticker: 'PETR4', name: 'Petrobras', type: 'STOCK', exchange: 'B3', assetId: null, requiresReview: false }], page: 1, hasNextPage: false })
     vi.mocked(findSaleOptions).mockResolvedValue([{ assetId: 8, ticker: 'OLDT3', name: 'Histórico', type: 'STOCK', quantityAtDate: 10, chronologicalLimit: 10 }])
 })
@@ -82,5 +84,37 @@ it('removes a manual transaction after confirmation and refreshes the list', asy
         await screen.findByText('Nenhuma transação encontrada.')
     } finally {
         window.confirm = oldConfirm
+    }
+})
+
+it('estorna B3 com motivo e mantém auditoria na tela após confirmação reforçada', async () => {
+    const oldConfirm = window.confirm
+    const oldPrompt = window.prompt
+    window.confirm = vi.fn(() => true)
+    window.prompt = vi.fn(() => 'Negociação lançada incorretamente na carteira')
+    try {
+        vi.mocked(findTransactionsByPortfolio).mockResolvedValueOnce([{
+            id: 101, portfolioId: 1, assetId: 5, assetTicker: 'PETR4', brokerId: 1,
+            brokerName: 'Corretora teste', type: 'BUY', quantity: 10, unitPrice: 25,
+            transactionDate: '2026-09-01',
+        }]).mockResolvedValue([])
+        vi.mocked(findB3LinkedTransactions).mockResolvedValueOnce([101]).mockResolvedValue([])
+        vi.mocked(findB3Reversals).mockResolvedValueOnce([]).mockResolvedValue([{
+            transactionId: 101, batchId: 2, excelRow: 3, reason: 'Negociação lançada incorretamente na carteira',
+            reversedAt: '2026-11-10T12:00:00Z',
+        }])
+        vi.mocked(reverseB3Transaction).mockResolvedValue({
+            transactionId: 101, batchId: 2, excelRow: 3, reason: 'Negociação lançada incorretamente na carteira',
+            reversedAt: '2026-11-10T12:00:00Z',
+        })
+        await setup()
+        expect(screen.queryByRole('button', { name: 'Excluir transação 101 de PETR4' })).toBeNull()
+        fireEvent.click(await screen.findByRole('button', { name: 'Estornar B3 transação 101 de PETR4' }))
+        await waitFor(() => expect(reverseB3Transaction).toHaveBeenCalledWith(101, 'Negociação lançada incorretamente na carteira'))
+        await screen.findByText(/Operação B3 estornada com registro de auditoria/)
+        await screen.findByText(/lote #2, linha 3/)
+    } finally {
+        window.confirm = oldConfirm
+        window.prompt = oldPrompt
     }
 })

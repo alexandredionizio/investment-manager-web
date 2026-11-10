@@ -10,9 +10,13 @@ import { findAllBrokers } from '../services/brokerService'
 import {
     createTransaction,
     deleteManualTransaction,
+    findB3LinkedTransactions,
+    findB3Reversals,
+    reverseB3Transaction,
     findTransactionsByPortfolio,
 } from '../services/transactionService'
 
+import type { B3Reversal } from '../services/transactionService'
 import type { PortfolioResponse } from '../types/portfolio'
 import type { BrokerResponse } from '../types/broker'
 import type {
@@ -29,6 +33,9 @@ interface ApiErrorResponse {
 function TransactionsPage() {
     const [portfolios, setPortfolios] = useState<PortfolioResponse[]>([])
     const [transactions, setTransactions] = useState<TransactionResponse[]>([])
+    const [b3LinkedIds, setB3LinkedIds] = useState<number[]>([])
+    const [b3Reversals, setB3Reversals] = useState<B3Reversal[]>([])
+    const [historyError, setHistoryError] = useState('')
     const [instrument, setInstrument] = useState<InstrumentSelection | null>(null)
     const [optionsVersion, setOptionsVersion] = useState(0)
     const historyVersion = useRef(0)
@@ -73,14 +80,21 @@ function TransactionsPage() {
     async function loadTransactions(portfolioId: number) {
         const version = ++historyVersion.current
         try {
-            const data =
-                await findTransactionsByPortfolio(portfolioId)
+            const [data, linked, audit] = await Promise.all([
+                findTransactionsByPortfolio(portfolioId),
+                findB3LinkedTransactions(portfolioId),
+                findB3Reversals(portfolioId),
+            ])
             if (version !== historyVersion.current) return
-
             setSelectedPortfolioId(portfolioId)
             setTransactions(data)
+            setB3LinkedIds(linked)
+            setB3Reversals(audit)
+            setHistoryError('')
         } catch {
-            if (version === historyVersion.current) setTransactionMessage('Não foi possível carregar o histórico.')
+            if (version === historyVersion.current) {
+                setHistoryError('Não foi possível carregar histórico ou auditoria B3. Tente novamente.');
+            }
         }
     }
 
@@ -89,6 +103,9 @@ function TransactionsPage() {
         setInstrument(null)
         setSelectedPortfolioId(null)
         setTransactions([])
+        setB3LinkedIds([])
+        setB3Reversals([])
+        setHistoryError('')
         setTransactionPortfolioId(portfolioId)
         setTransactionMessage('')
 
@@ -186,6 +203,35 @@ function TransactionsPage() {
         }
     }
 
+    async function handleReverseB3(transaction: TransactionResponse) {
+        const portfolioId = selectedPortfolioId
+        if (portfolioId === null || deletingId !== null || transactionLoading) return
+        const reason = window.prompt(
+            `Motivo do estorno auditável da operação B3 ${transaction.id} (${transaction.assetTicker}):\n\nO lançamento original permanecerá registrado no lote B3.`,
+            '',
+        )
+        if (reason === null) return
+        if (reason.trim().length < 10 || reason.trim().length > 500) {
+            setTransactionMessage('Informe um motivo de 10 a 500 caracteres para estornar.'); return
+        }
+        if (!window.confirm(`Confirmar estorno de ${transaction.assetTicker}? A posição será recalculada, e o lançamento original permanecerá na auditoria B3.`)) return
+        setDeletingId(transaction.id)
+        setTransactionMessage('')
+        try {
+            await reverseB3Transaction(transaction.id, reason.trim())
+            await loadTransactions(portfolioId)
+            setOptionsVersion(version => version + 1)
+            setTransactionMessage('Operação B3 estornada com registro de auditoria.')
+        } catch (error) {
+            if (axios.isAxiosError<ApiErrorResponse>(error)) {
+                setTransactionMessage(error.response?.data?.message ||
+                    'Estorno recusado: verifique vendas posteriores e proventos.')
+            } else {
+                setTransactionMessage('Não foi possível realizar o estorno.')
+            }
+        } finally { setDeletingId(null) }
+    }
+
     function formatCurrency(value: number) {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
@@ -255,6 +301,7 @@ function TransactionsPage() {
                         <h2>Histórico de transações</h2>
                         <p>Exclusão disponível somente para lançamentos manuais que não comprometam o histórico. Registros da B3 exigem correção auditável.</p>
                         {transactionMessage && <p role="status">{transactionMessage}</p>}
+                        {historyError && <p role="alert">{historyError}</p>}
 
                         {transactions.length === 0 ? (
                             <p>
@@ -331,18 +378,40 @@ function TransactionsPage() {
                                                     )}
                                                 </td>
                                                 <td>
-                                                    <button type="button"
-                                                        disabled={deletingId !== null || transactionLoading}
-                                                        aria-label={`Excluir transação ${transaction.id} de ${transaction.assetTicker}`}
-                                                        onClick={() => void handleDeleteTransaction(transaction)}>
-                                                        {deletingId === transaction.id ? 'Excluindo...' : 'Excluir'}
-                                                    </button>
+                                                    {b3LinkedIds.includes(transaction.id) ? (
+                                                        <button type="button"
+                                                            disabled={deletingId !== null || transactionLoading}
+                                                            aria-label={`Estornar B3 transação ${transaction.id} de ${transaction.assetTicker}`}
+                                                            onClick={() => void handleReverseB3(transaction)}>
+                                                            {deletingId === transaction.id ? 'Estornando...' : 'Estornar B3'}
+                                                        </button>
+                                                    ) : (
+                                                        <button type="button"
+                                                            disabled={deletingId !== null || transactionLoading}
+                                                            aria-label={`Excluir transação ${transaction.id} de ${transaction.assetTicker}`}
+                                                            onClick={() => void handleDeleteTransaction(transaction)}>
+                                                            {deletingId === transaction.id ? 'Excluindo...' : 'Excluir'}
+                                                        </button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ),
                                     )}
                                     </tbody>
                                 </table>
+                            </div>
+                        )}
+                        {b3Reversals.length > 0 && (
+                            <div>
+                                <h3>Auditoria de estornos B3</h3>
+                                <p>Operações estornadas não entram nos saldos, mas permanecem vinculadas ao lote e à linha originais.</p>
+                                <ul>
+                                    {b3Reversals.map(r => (
+                                        <li key={r.transactionId}>
+                                            Transação #{r.transactionId} — lote #{r.batchId}, linha {r.excelRow} — {r.reason}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         )}
                     </section>
