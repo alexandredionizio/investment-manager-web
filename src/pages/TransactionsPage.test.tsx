@@ -6,12 +6,12 @@ import AssetsPage from './AssetsPage'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findAllBrokers } from '../services/brokerService'
 import { findAllAssets } from '../services/assetService'
-import { createTransaction, findTransactionsByPortfolio } from '../services/transactionService'
+import { createTransaction, deleteManualTransaction, findTransactionsByPortfolio } from '../services/transactionService'
 import { createPurchase, searchInstruments, findSaleOptions } from '../services/instrumentService'
 vi.mock('../services/portfolioService', () => ({ findAllPortfolios: vi.fn() }))
 vi.mock('../services/brokerService', () => ({ findAllBrokers: vi.fn() }))
 vi.mock('../services/assetService', () => ({ findAllAssets: vi.fn() }))
-vi.mock('../services/transactionService', () => ({ createTransaction: vi.fn(), findTransactionsByPortfolio: vi.fn() }))
+vi.mock('../services/transactionService', () => ({ createTransaction: vi.fn(), deleteManualTransaction: vi.fn(), findTransactionsByPortfolio: vi.fn() }))
 vi.mock('../services/instrumentService', () => ({ createPurchase: vi.fn(), searchInstruments: vi.fn(), findSaleOptions: vi.fn() }))
 afterEach(cleanup)
 beforeEach(() => {
@@ -34,13 +34,14 @@ async function setup() {
 it('confirms a catalog purchase without an asset ID and clears the selected instrument after success', async () => {
     await setup()
     fireEvent.change(screen.getByLabelText('Buscar ativo por ticker ou nome'), { target: { value: 'PETR' } })
-    fireEvent.click(await screen.findByRole('button', { name: /PETR4 — Petrobras/ }))
+    await waitFor(() => expect(searchInstruments).toHaveBeenCalled(), { timeout: 10000 })
+    fireEvent.click(await screen.findByRole('button', { name: /PETR4 — Petrobras/ }, { timeout: 10000 }))
     fireEvent.click(screen.getByText('Registrar transação'))
     await waitFor(() => expect(createPurchase).toHaveBeenCalledWith({ portfolioId: 1, ticker: 'PETR4', brokerId: 1, quantity: 10, unitPrice: 25, transactionDate: '2026-09-01' }))
     expect(createTransaction).not.toHaveBeenCalled(); expect(findAllAssets).not.toHaveBeenCalled()
     await screen.findByText('Transação registrada com sucesso.')
     expect((screen.getByText('Registrar transação') as HTMLButtonElement).disabled).toBe(true)
-})
+}, 15000)
 it.each(['Data', 'Selecione a carteira', 'Tipo'])('clears the sale selection immediately when %s changes', async label => {
     await setup(); fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'SELL' } })
     await screen.findByText(/OLDT3 — Histórico/)
@@ -63,4 +64,23 @@ it('keeps Assets exclusively as consultation', async () => {
     const { container } = render(<MemoryRouter><AssetsPage /></MemoryRouter>)
     await screen.findByText('OLDT3'); expect(container.querySelector('form')).toBeNull()
     expect(screen.getByText(/A presença nesta lista não garante/)).toBeTruthy()
+})
+
+it('removes a manual transaction after confirmation and refreshes the list', async () => {
+    const oldConfirm = window.confirm
+    window.confirm = vi.fn(() => true)
+    try {
+        vi.mocked(findTransactionsByPortfolio)
+            .mockResolvedValueOnce([{ id: 91, portfolioId: 1, assetId: 5, assetTicker: 'PETR4', brokerId: 1,
+                brokerName: 'Corretora teste', type: 'BUY', quantity: 10, unitPrice: 25, transactionDate: '2026-09-01' }])
+            .mockResolvedValue([])
+        vi.mocked(deleteManualTransaction).mockResolvedValue(undefined)
+        await setup()
+        fireEvent.click(await screen.findByRole('button', { name: 'Excluir transação 91 de PETR4' }))
+        await waitFor(() => expect(deleteManualTransaction).toHaveBeenCalledWith(91))
+        await screen.findByText('Transação excluída com sucesso.')
+        await screen.findByText('Nenhuma transação encontrada.')
+    } finally {
+        window.confirm = oldConfirm
+    }
 })

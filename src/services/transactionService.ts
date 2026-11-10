@@ -24,3 +24,7 @@ export async function findTransactionsByPortfolio(
 
     return response.data
 }
+
+export async function deleteManualTransaction(transactionId: number): Promise<void> {
+    await api.delete(`/transactions/${transactionId}`)
+}

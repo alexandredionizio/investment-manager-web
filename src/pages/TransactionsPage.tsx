@@ -9,6 +9,7 @@ import type { InstrumentSelection } from '../services/instrumentService'
 import { findAllBrokers } from '../services/brokerService'
 import {
     createTransaction,
+    deleteManualTransaction,
     findTransactionsByPortfolio,
 } from '../services/transactionService'
 
@@ -46,6 +47,7 @@ function TransactionsPage() {
 
     const [transactionMessage, setTransactionMessage] = useState('')
     const [transactionLoading, setTransactionLoading] = useState(false)
+    const [deletingId, setDeletingId] = useState<number | null>(null)
 
     useEffect(() => {
         async function loadInitialData() {
@@ -157,6 +159,33 @@ function TransactionsPage() {
         }
     }
 
+    async function handleDeleteTransaction(transaction: TransactionResponse) {
+        const portfolioId = selectedPortfolioId
+        if (portfolioId === null || deletingId !== null || transactionLoading) return
+        const confirmed = window.confirm(
+            `Excluir a ${transaction.type === 'BUY' ? 'compra' : 'venda'} de ${formatNumber(transaction.quantity)} ${transaction.assetTicker}, em ${formatDate(transaction.transactionDate)}?\n\n` +
+            'A exclusão é definitiva. O backend verificará vendas posteriores, proventos e importações B3 antes de autorizar.',
+        )
+        if (!confirmed) return
+        setDeletingId(transaction.id)
+        setTransactionMessage('')
+        try {
+            await deleteManualTransaction(transaction.id)
+            await loadTransactions(portfolioId)
+            setOptionsVersion(version => version + 1)
+            setTransactionMessage('Transação excluída com sucesso.')
+        } catch (error) {
+            if (axios.isAxiosError<ApiErrorResponse>(error)) {
+                setTransactionMessage(error.response?.data?.message ||
+                    'Exclusão não autorizada. Confira se a operação veio da B3 ou afeta saldos e proventos.')
+            } else {
+                setTransactionMessage('Não foi possível excluir a transação.')
+            }
+        } finally {
+            setDeletingId(null)
+        }
+    }
+
     function formatCurrency(value: number) {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
@@ -197,6 +226,7 @@ function TransactionsPage() {
 
                         <select
                             id="transactionPortfolio"
+                            disabled={deletingId !== null}
                             value={transactionPortfolioId}
                             onChange={(event) =>
                                 handlePortfolioChange(
@@ -223,6 +253,8 @@ function TransactionsPage() {
                 {selectedPortfolioId !== null && (
                     <section>
                         <h2>Histórico de transações</h2>
+                        <p>Exclusão disponível somente para lançamentos manuais que não comprometam o histórico. Registros da B3 exigem correção auditável.</p>
+                        {transactionMessage && <p role="status">{transactionMessage}</p>}
 
                         {transactions.length === 0 ? (
                             <p>
@@ -241,6 +273,7 @@ function TransactionsPage() {
                                             Preço unitário
                                         </th>
                                         <th>Data</th>
+                                        <th>Ações</th>
                                     </tr>
                                     </thead>
 
@@ -296,6 +329,14 @@ function TransactionsPage() {
                                                     {formatDate(
                                                         transaction.transactionDate,
                                                     )}
+                                                </td>
+                                                <td>
+                                                    <button type="button"
+                                                        disabled={deletingId !== null || transactionLoading}
+                                                        aria-label={`Excluir transação ${transaction.id} de ${transaction.assetTicker}`}
+                                                        onClick={() => void handleDeleteTransaction(transaction)}>
+                                                        {deletingId === transaction.id ? 'Excluindo...' : 'Excluir'}
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ),
@@ -432,9 +473,6 @@ function TransactionsPage() {
                                 : 'Registrar transação'}
                         </button>
 
-                        {transactionMessage && (
-                            <p>{transactionMessage}</p>
-                        )}
                     </form>
                 </section>
             </main>
