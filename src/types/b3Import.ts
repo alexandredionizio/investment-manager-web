@@ -98,3 +98,12 @@ export type B3ReconciliationResponse = {
   blockedRows: number
   rows: B3ReconciliationRow[]
 }
+
+/** IM-042: retorno persistido do lote de importação. */
+export type B3ImportCommitResponse = {
+  batchId: number
+  portfolioId: number
+  status: 'IMPORTED' | 'ALREADY_IMPORTED'
+  importedRows: number
+  rows: Array<{ excelRow: number; transactionId: number }>
+}

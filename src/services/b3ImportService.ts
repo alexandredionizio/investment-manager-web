@@ -88,3 +88,17 @@ export async function reconcileB3Spreadsheet(
   )
   return data
 }
+
+/** IM-042: chamada única, explícita, atomicamente revalidada pelo backend. */
+export async function commitB3Spreadsheet(
+  api: Pick<AxiosInstance, 'post' | 'defaults'>,
+  file: File,
+  portfolioId: number,
+): Promise<import('../types/b3Import').B3ImportCommitResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await api.post<import('../types/b3Import').B3ImportCommitResponse>(
+    b3Endpoint(api, 'commit'), formData, { params: { portfolioId, confirmed: true } },
+  )
+  return data
+}

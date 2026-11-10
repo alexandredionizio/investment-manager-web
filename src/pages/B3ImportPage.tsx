@@ -4,19 +4,24 @@ import B3ImportPreview from '../components/B3ImportPreview'
 import B3BrokerMatching from '../components/B3BrokerMatching'
 import B3AssetRegistration from '../components/B3AssetRegistration'
 import B3Reconciliation from '../components/B3Reconciliation'
+import B3ImportCommit from '../components/B3ImportCommit'
 import { findAllPortfolios } from '../services/portfolioService'
 import type { PortfolioResponse } from '../types/portfolio'
 import { useEffect } from 'react'
 import api from '../services/api'
-import { previewB3Spreadsheet, matchB3Spreadsheet, listB3BrokerOptions, confirmB3BrokerAlias, registerB3Broker, lookupB3Asset, registerB3Asset, reconcileB3Spreadsheet } from '../services/b3ImportService'
-import type { B3MatchResponse, B3BrokerOption, B3PreviewResponse, B3ReconciliationResponse } from '../types/b3Import'
+import { previewB3Spreadsheet, matchB3Spreadsheet, listB3BrokerOptions, confirmB3BrokerAlias, registerB3Broker, lookupB3Asset, registerB3Asset, reconcileB3Spreadsheet, commitB3Spreadsheet } from '../services/b3ImportService'
+import type { B3MatchResponse, B3BrokerOption, B3PreviewResponse, B3ReconciliationResponse, B3ImportCommitResponse } from '../types/b3Import'
 
 export default function B3ImportPage() {
     const requestVersion = useRef(0)
     const reconciliationVersion = useRef(0)
+    const commitVersion = useRef(0)
     const [portfolios, setPortfolios] = useState<PortfolioResponse[]>([])
     const [portfolioId, setPortfolioId] = useState<number | null>(null)
     const [reconciliation, setReconciliation] = useState<B3ReconciliationResponse | null>(null)
+    const [commitResult, setCommitResult] = useState<B3ImportCommitResponse | null>(null)
+    const [committing, setCommitting] = useState(false)
+    const [commitError, setCommitError] = useState('')
     const [reconciling, setReconciling] = useState(false)
     const [reconciliationError, setReconciliationError] = useState('')
     useEffect(() => {
@@ -26,6 +31,9 @@ export default function B3ImportPage() {
         return () => { active = false }
     }, [])
     const resetReconciliation = () => {
+        commitVersion.current += 1
+        setCommitResult(null)
+        setCommitError('')
         reconciliationVersion.current += 1
         setReconciliation(null)
         setReconciliationError('')
@@ -48,6 +56,26 @@ export default function B3ImportPage() {
             if (version === reconciliationVersion.current) setReconciliationError('Conciliação indisponível. Confira a carteira e a autenticação.')
         } finally {
             if (version === reconciliationVersion.current) setReconciling(false)
+        }
+    }
+
+    const commit = async () => {
+        if (!file || !portfolioId || !reconciliation || reconciliation.readyRows !== reconciliation.totalRows ||
+            reconciliation.reviewRows !== 0 || reconciliation.blockedRows !== 0 || committing) return
+        const version = ++commitVersion.current
+        setCommitting(true)
+        setCommitError('')
+        try {
+            const result = await commitB3Spreadsheet(api, file, portfolioId)
+            if (version === commitVersion.current) {
+                setCommitResult(result)
+                setReconciliation(null)
+            }
+        } catch {
+            if (version === commitVersion.current)
+                setCommitError('Não foi possível obter a confirmação. Consulte o histórico de transações antes de tentar novamente.')
+        } finally {
+            if (version === commitVersion.current) setCommitting(false)
         }
     }
 
@@ -148,8 +176,16 @@ export default function B3ImportPage() {
                     onPortfolioChange={choosePortfolio}
                     onReconcile={() => void reconcile()}
                     result={reconciliation}
-                    loading={reconciling || pending}
+                    loading={reconciling || pending || committing}
                     error={reconciliationError}
+                />}
+                {file && <B3ImportCommit
+                    key={`${file.name}-${file.lastModified}-${portfolioId ?? 'sem-carteira'}`}
+                    reconciliation={reconciliation}
+                    loading={committing || reconciling || pending}
+                    error={commitError}
+                    result={commitResult}
+                    onCommit={commit}
                 />}
             </main>
         </>
