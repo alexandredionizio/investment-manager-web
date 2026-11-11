@@ -40,6 +40,7 @@ beforeEach(() => {
         else if (url.startsWith('/transactions/portfolio/')) data = populated ? [{ ...transaction, portfolioId: id }] : []
         else if (url.endsWith('/positions/valuations')) data = populated ? [position] : []
         else if (url.endsWith('/incomes') || url.includes('/incomes/portfolio/')) data = []
+        else if (url.startsWith('/expected-incomes/portfolio/')) data = []
         else if (url.endsWith('/realized-results')) data = []
         else if (url.endsWith('/returns')) data = { portfolioId: id, startDate: '2026-09-20', endDate: '2026-09-21', totalReturn: populated ? 0 : null, points: populated ? [point] : [] }
         else if (url.endsWith('/history')) data = { portfolioId: id, period: config?.params.period, startDate: '2026-09-20', endDate: '2026-09-21', granularity: 'DAILY', points: populated ? [{ date: '2026-09-21', value: 1000 }] : [] }
@@ -101,6 +102,59 @@ describe('Dashboard data availability', () => {
         await ready()
         await waitFor(() => expect(card('Proventos recebidos').textContent).toContain('30,00'))
         expect(card('Proventos recebidos').textContent).not.toContain('1.030,00')
+    })
+
+    it('sums manual and B3 expected incomes for the selected portfolio, excluding received payments', async () => {
+        populated = true
+        override = url => {
+            if (url.includes('/incomes/portfolio/')) return [
+                { assetTicker: 'PETR4', type: 'JCP', paymentDate: '2026-11-12', quantity: 100,
+                    totalAmount: 100, received: false },
+                { assetTicker: 'ITSA4', type: 'JCP', paymentDate: '2026-10-01', quantity: 100,
+                    totalAmount: 38, received: true },
+            ]
+            if (url.includes('/expected-incomes/portfolio/')) return [
+                { assetTicker: 'HGLG11', type: 'FII_INCOME', expectedPaymentDate: '2026-11-16', quantity: 54, expectedNetAmount: 63.18 },
+                { assetTicker: 'KNRI11', type: 'FII_INCOME', expectedPaymentDate: '2026-11-16', quantity: 47, expectedNetAmount: 51.70 },
+            ]
+            return unchanged
+        }
+        open()
+        await ready()
+        await waitFor(() => expect(card('Proventos previstos').textContent).toContain('214,88'))
+        expect(card('Proventos recebidos').textContent).toContain('38,00')
+    })
+
+    it('does not count an exact manual/B3 forecast twice and preserves distinct B3 events', async () => {
+        populated = true
+        override = url => {
+            if (url.includes('/incomes/portfolio/')) return [
+                { assetTicker: 'HGLG11', type: 'FII_INCOME', paymentDate: '2026-11-16', quantity: 54,
+                    totalAmount: 63.18, received: false },
+            ]
+            if (url.includes('/expected-incomes/portfolio/')) return [
+                { assetTicker: 'HGLG11', type: 'FII_INCOME', expectedPaymentDate: '2026-11-16', quantity: 54, expectedNetAmount: 63.18 },
+                { assetTicker: 'HGLG11', type: 'FII_INCOME', expectedPaymentDate: '2026-11-16', quantity: 54, expectedNetAmount: 63.18 },
+            ]
+            return unchanged
+        }
+        open()
+        await ready()
+        await waitFor(() => expect(card('Proventos previstos').textContent).toContain('126,36'))
+    })
+
+    it('does not report a fictitious zero when manual-income data is unavailable', async () => {
+        override = url => {
+            if (url.includes('/incomes/portfolio/')) throw httpError(503)
+            if (url.includes('/expected-incomes/portfolio/')) return [{
+                assetTicker: 'KNRI11', type: 'FII_INCOME', expectedPaymentDate: '2026-11-16',
+                quantity: 47, expectedNetAmount: 51.70,
+            }]
+            return unchanged
+        }
+        open()
+        await ready()
+        await waitFor(() => expect(card('Proventos previstos').textContent).toContain('Indisponível'))
     })
 
     it('shows real zero received when every registered payment is future', async () => {

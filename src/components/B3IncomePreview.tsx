@@ -36,8 +36,8 @@ export default function B3IncomePreview() {
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!file || busy) return
-    if (!/\.xlsx$/i.test(file.name) || file.size > 2 * 1024 * 1024) {
-      setError('Envie um Excel .xlsx de até 2 MB.'); return
+    if (!/\.xlsx$/i.test(file.name) || file.size > 10 * 1024 * 1024) {
+      setError('Envie um Excel .xlsx de até 10 MB.'); return
     }
     const current = ++seq.current
     setBusy(true); setError(''); setResult(null)
@@ -119,8 +119,9 @@ export default function B3IncomePreview() {
     </ol>
     <p>Envie a planilha de <strong>Movimentação</strong> da B3. Identificamos dividendos, JCP e rendimentos para conferência. <strong>Nenhum provento será gravado nesta etapa.</strong></p>
     <form onSubmit={submit}>
-      <label htmlFor="b3-income-file">Extrato de movimentação (.xlsx)</label>{' '}
-      <input id="b3-income-file" type="file" accept=".xlsx" onChange={choose} />{' '}
+      <label htmlFor="b3-income-file">Planilha de movimentação (.xlsx)</label>{' '}
+      <input id="b3-income-file" type="file" accept=".xlsx" onChange={choose} />
+      <p className="b3-import-file-help">Excel (.xlsx), até 10 MB.</p>
       <button type="submit" disabled={!file || busy}>{busy ? 'Analisando...' : 'Pré-visualizar proventos recebidos'}</button>
     </form>
     {error && <p role="alert">{error}</p>}

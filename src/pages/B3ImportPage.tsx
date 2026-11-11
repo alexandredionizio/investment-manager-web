@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import Header from '../components/Header'
 import B3ImportPreview from '../components/B3ImportPreview'
 import B3IncomePreview from '../components/B3IncomePreview'
+import B3ExpectedIncomePreview from '../components/B3ExpectedIncomePreview'
 import './B3ImportPage.css'
 import B3BrokerMatching from '../components/B3BrokerMatching'
 import B3AssetRegistration from '../components/B3AssetRegistration'
@@ -15,7 +16,7 @@ import { previewB3Spreadsheet, matchB3Spreadsheet, listB3BrokerOptions, confirmB
 import type { B3MatchResponse, B3BrokerOption, B3PreviewResponse, B3ReconciliationResponse, B3ImportCommitResponse } from '../types/b3Import'
 
 export default function B3ImportPage() {
-    const [activeTab, setActiveTab] = useState<'movements' | 'incomes'>('movements')
+    const [activeTab, setActiveTab] = useState<'movements' | 'incomes' | 'expected'>('movements')
     const requestVersion = useRef(0)
     const reconciliationVersion = useRef(0)
     const commitVersion = useRef(0)
@@ -160,11 +161,17 @@ export default function B3ImportPage() {
                 <div className="b3-import-tabs" role="tablist" aria-label="Tipo de importação B3">
                     <button type="button" role="tab" id="b3-movements-tab" aria-controls="b3-movements-panel"
                         aria-selected={activeTab === 'movements'} className={activeTab === 'movements' ? 'active' : ''}
-                        onClick={() => setActiveTab('movements')}>Movimentações</button>
+                        onClick={() => setActiveTab('movements')}>Negociações</button>
                     <button type="button" role="tab" id="b3-incomes-tab" aria-controls="b3-incomes-panel"
                         aria-selected={activeTab === 'incomes'} className={activeTab === 'incomes' ? 'active' : ''}
                         onClick={() => setActiveTab('incomes')}>Proventos Recebidos</button>
+                    <button type="button" role="tab" id="b3-expected-tab" aria-controls="b3-expected-panel"
+                        aria-selected={activeTab === 'expected'} className={activeTab === 'expected' ? 'active' : ''}
+                        onClick={() => setActiveTab('expected')}>Proventos Previstos</button>
                 </div>
+                <section id="b3-expected-panel" role="tabpanel" aria-labelledby="b3-expected-tab" hidden={activeTab !== 'expected'}>
+                    <B3ExpectedIncomePreview />
+                </section>
                 <section id="b3-incomes-panel" role="tabpanel" aria-labelledby="b3-incomes-tab" hidden={activeTab !== 'incomes'}>
                     <B3IncomePreview />
                 </section>

@@ -28,6 +28,8 @@ import type { DashboardData, DashboardIssues } from '../services/dashboardServic
 import type { PortfolioResponse } from '../types/portfolio'
 import type { PositionMarketResponse } from '../types/position'
 import type { IncomeResponse } from '../types/income'
+import { findExpectedIncomesByPortfolio } from '../services/expectedIncomeQueryService'
+import type { ExpectedIncomeRecord } from '../services/expectedIncomeQueryService'
 import type { RealizedResultResponse } from '../types/realizedResult'
 import type {
     PortfolioHistoryPeriod,
@@ -69,6 +71,9 @@ function DashboardPage() {
 
     const [incomes, setIncomes] =
         useState<IncomeResponse[]>([])
+
+    const [expectedIncomes, setExpectedIncomes] = useState<ExpectedIncomeRecord[]>([])
+    const [expectedStatus, setExpectedStatus] = useState<'loading' | 'ready' | 'error'>('loading')
 
     const [realizedResults, setRealizedResults] =
         useState<RealizedResultResponse[]>([])
@@ -149,6 +154,17 @@ function DashboardPage() {
         saveSelectedPortfolioId(portfolioId)
         setPositions([])
         setIncomes([])
+        setExpectedIncomes([])
+        setExpectedStatus('loading')
+        void findExpectedIncomesByPortfolio(portfolioId).then(rows => {
+            if (version !== loadVersion.current) return
+            setExpectedIncomes(rows)
+            setExpectedStatus('ready')
+        }).catch(() => {
+            if (version !== loadVersion.current) return
+            setExpectedIncomes([])
+            setExpectedStatus('error')
+        })
         setRealizedResults([])
         setPortfolioHistory(null)
         setBenchmarkComparison([])
@@ -562,6 +578,34 @@ function DashboardPage() {
             0,
         )
 
+    // Exibir na mesma métrica as previsões manuais e as importadas da B3,
+    // mas nunca créditos efetivamente recebidos. Uma correspondência EXATA
+    // entre as duas origens é contada uma só vez (sem conciliação automática).
+    const manualExpected = incomes.filter(income => income.received === false)
+    const expectedKey = (ticker: string, type: string, date: string, quantity: number, amount: number) =>
+        // Sem identificacao completa, nao presumir que dois eventos sejam iguais.
+        typeof ticker === 'string' && ticker.trim() && typeof type === 'string' && type.trim()
+            && typeof date === 'string' && date.trim() && Number.isFinite(quantity) && Number.isFinite(amount)
+            ? JSON.stringify([ticker.trim().toUpperCase(), type, date, quantity, Math.round(amount * 100)])
+            : null
+    const manualMatches = new Map<string, number>()
+    for (const income of manualExpected) {
+        const key = expectedKey(income.assetTicker, income.type, income.paymentDate, income.quantity, income.totalAmount)
+        if (key !== null) manualMatches.set(key, (manualMatches.get(key) ?? 0) + 1)
+    }
+    const b3OnlyExpected = expectedIncomes.filter(item => {
+        const key = expectedKey(item.assetTicker, item.type, item.expectedPaymentDate, item.quantity, item.expectedNetAmount)
+        if (key === null) return true
+        const matches = manualMatches.get(key) ?? 0
+        if (matches === 0) return true
+        manualMatches.set(key, matches - 1)
+        return false
+    })
+    const totalExpectedIncomes = manualExpected.reduce((sum, item) => sum + item.totalAmount, 0)
+        + b3OnlyExpected.reduce((sum, item) => sum + item.expectedNetAmount, 0)
+    const manualIncomeUnavailable = pendingSections.incomes || !!issues.incomes
+        || incomes.some(i => typeof i.received !== 'boolean' || !Number.isFinite(i.totalAmount))
+
     const totalRealizedProfitLoss =
         realizedResults.reduce(
             (total, result) =>
@@ -898,6 +942,13 @@ function DashboardPage() {
                                     Pagamentos até hoje
                                 </small>
 
+                            </article>
+
+                            <article className="dashboard-metric-card">
+                                <span>Proventos previstos</span>
+                                <strong>{expectedStatus === 'loading' || pendingSections.incomes ? 'Carregando...' :
+                                    expectedStatus === 'error' || manualIncomeUnavailable ? 'Indisponível' : formatCurrency(totalExpectedIncomes)}</strong>
+                                <small>Pagamentos previstos (cadastro manual e B3)</small>
                             </article>
 
                             <article className="dashboard-metric-card">

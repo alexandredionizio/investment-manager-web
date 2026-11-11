@@ -14,3 +14,6 @@
 .b3-income-steps li.completed .b3-income-step-icon { background: #1c7352; color: white; border-color: #1c7352; }
 .b3-income-pending { border-left: 3px solid #9aa9bc; padding: .7rem .9rem; background: #f3f6fa; color: #3e536f; }
 @media (max-width: 480px) { .b3-import-tabs button { flex: 1; } .b3-income-steps { gap: .75rem; } }
+
+/* Ajuda de upload padronizada nas três abas de importação. */
+.b3-import-file-help { margin: .35rem 0 .7rem; font-size: .85rem; color: #526785; }

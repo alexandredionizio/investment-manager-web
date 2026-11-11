@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { AxiosResponse } from 'axios'
 import api from '../services/api'
 import IncomesPage from './IncomesPage'
+import { findExpectedIncomesByPortfolio } from '../services/expectedIncomeQueryService'
+vi.mock('../services/expectedIncomeQueryService', () => ({ findExpectedIncomesByPortfolio: vi.fn() }))
 
 const income = { id: 1, portfolioId: 1, assetId: 1, assetTicker: 'ITUB4', type: 'DIVIDEND',
     amountPerUnit: 0.5, quantity: 100, totalAmount: 50, baseDate: '2026-09-10', paymentDate: '2026-10-30', received: true }
 let rows: unknown[]
 beforeEach(() => {
+    vi.mocked(findExpectedIncomesByPortfolio).mockResolvedValue([])
     rows = [income, { ...income, id: 2, paymentDate: '2026-10-31' },
         { ...income, id: 3, received: false, paymentDate: '2026-11-01' }]
     vi.spyOn(api, 'get').mockImplementation(async (url: string) => ({ data: url === '/incomes' ? rows : [] }) as AxiosResponse)
@@ -23,7 +26,7 @@ describe('Income payment presentation', () => {
         const table = await screen.findByRole('table')
         expect(within(table).getByRole('columnheader', { name: 'Situação' })).toBeTruthy()
         expect(within(table).getAllByText('Recebido')).toHaveLength(2)
-        expect(within(table).getAllByText('Pagamento futuro')).toHaveLength(1)
+        expect(within(table).getAllByText('Previsto')).toHaveLength(1)
         expect(within(table).getAllByRole('row')).toHaveLength(4)
         expect(within(table).getAllByRole('row').slice(1).every(row => within(row).getAllByRole('cell').length === 8)).toBe(true)
     })
@@ -43,6 +46,25 @@ describe('Income payment presentation', () => {
         expect(withBaseDate.getByText('30/09/2026')).toBeTruthy()
         expect(withBaseDate.getByText('15/10/2026')).toBeTruthy()
         expect(withBaseDate.getByText(/R\$\s*49,50/)).toBeTruthy()
+    })
+    it('filters received and expected B3 records without turning them into credits', async () => {
+        vi.mocked(findExpectedIncomesByPortfolio).mockResolvedValue([{
+            id: 8, portfolioId: 1, assetId: 2, assetTicker: 'HGLG11',
+            type: 'FII_INCOME', expectedPaymentDate: '2026-11-16', quantity: 54,
+            expectedNetAmount: 63.18, institution: 'XP',
+        }])
+        // O teste usa uma carteira cadastrada para carregar previsões.
+        vi.spyOn(api, 'get').mockImplementation(async (url: string) => ({
+            data: url === '/incomes' ? rows : url === '/portfolios' ? [{ id: 1, name: 'Teste' }] : [],
+        }) as AxiosResponse)
+        open()
+        const filter = await screen.findByLabelText('Situação')
+        await screen.findByText('HGLG11')
+        fireEvent.change(filter, { target: { value: 'received' } })
+        expect(screen.queryByText('HGLG11')).toBeNull()
+        fireEvent.change(filter, { target: { value: 'expected' } })
+        expect(screen.getByText('HGLG11')).toBeTruthy()
+        expect(screen.getByText(/R\$\s*63,18/)).toBeTruthy()
     })
     it('reports malformed payment status instead of calling it a future payment', async () => {
         rows = [{ ...income, received: undefined }]

@@ -9,6 +9,8 @@ import {
 } from '../services/incomeService'
 import type { PortfolioResponse } from '../types/portfolio'
 import type { AssetResponse } from '../types/asset'
+import { findExpectedIncomesByPortfolio } from '../services/expectedIncomeQueryService'
+import type { ExpectedIncomeRecord } from '../services/expectedIncomeQueryService'
 import type {
     IncomeResponse,
     IncomeType,
@@ -32,6 +34,11 @@ function IncomesPage() {
 
     const [portfolioId, setPortfolioId] =
         useState('')
+
+    const [historyFilter, setHistoryFilter] = useState<'all' | 'received' | 'expected'>('all')
+    const [expected, setExpected] = useState<ExpectedIncomeRecord[]>([])
+    const [expectedLoading, setExpectedLoading] = useState(true)
+    const [expectedError, setExpectedError] = useState(false)
 
     const [assetId, setAssetId] =
         useState('')
@@ -89,6 +96,43 @@ function IncomesPage() {
 
         loadPageData()
     }, [])
+
+    useEffect(() => {
+        let live = true
+        async function loadExpected() {
+            setExpectedLoading(true)
+            setExpectedError(false)
+            try {
+                // O histórico existente lista todas as carteiras; seguir esse mesmo escopo.
+                const results = await Promise.all(portfolios.map(p => findExpectedIncomesByPortfolio(p.id)))
+                if (live) setExpected(results.flat())
+            } catch {
+                if (live) { setExpected([]); setExpectedError(true) }
+            } finally {
+                if (live) setExpectedLoading(false)
+            }
+        }
+        if (!loading) void loadExpected()
+        return () => { live = false }
+    }, [loading, portfolios])
+
+    const historyItems = [
+        ...incomes.map(i => ({
+            key: `income-${i.id}`, baseDate: i.baseDate, paymentDate: i.paymentDate,
+            status: i.received ? 'received' as const : 'expected' as const,
+            assetTicker: i.assetTicker, type: i.type, quantity: i.quantity,
+            amountPerUnit: i.amountPerUnit, totalAmount: i.totalAmount,
+            source: 'income' as const,
+        })),
+        ...expected.map(i => ({
+            key: `b3-expected-${i.id}`, baseDate: null, paymentDate: i.expectedPaymentDate,
+            status: 'expected' as const, assetTicker: i.assetTicker, type: i.type,
+            quantity: i.quantity,
+            amountPerUnit: i.quantity ? i.expectedNetAmount / i.quantity : 0,
+            totalAmount: i.expectedNetAmount, source: 'b3-expected' as const,
+        })),
+    ]
+    const displayedItems = historyItems.filter(item => historyFilter === 'all' || item.status === historyFilter)
 
     async function reloadIncomes() {
         const data = await findAllIncomes()
@@ -389,12 +433,22 @@ function IncomesPage() {
                                 registrados na carteira.
                             </p>
                         </div>
+                        <div className="income-form-field" style={{ minWidth: 185 }}>
+                            <label htmlFor="income-history-filter">Situação</label>
+                            <select id="income-history-filter" value={historyFilter}
+                                onChange={e => setHistoryFilter(e.target.value as 'all' | 'received' | 'expected')}>
+                                <option value="all">Todos</option>
+                                <option value="received">Recebidos</option>
+                                <option value="expected">Previstos</option>
+                            </select>
+                        </div>
                     </div>
 
-                    {loading ? (
+                    {expectedError && <p role="alert">Previsões B3 indisponíveis. O histórico abaixo pode estar incompleto.</p>}
+                    {loading || expectedLoading ? (
                         <p>Carregando proventos...</p>
-                    ) : incomes.length === 0 ? (
-                        <p>Nenhum provento encontrado.</p>
+                    ) : displayedItems.length === 0 ? (
+                        <p>Nenhum provento encontrado para o filtro selecionado.</p>
                     ) : (
                         <div className="table-container">
                             <table className="transactions-table">
@@ -414,8 +468,8 @@ function IncomesPage() {
                                 </thead>
 
                                 <tbody>
-                                {incomes.map((income) => (
-                                    <tr key={income.id}>
+                                {displayedItems.map((income) => (
+                                    <tr key={income.key}>
                                         <td>
                                             {income.baseDate
                                                 ? formatDate(income.baseDate)
@@ -428,7 +482,7 @@ function IncomesPage() {
                                             )}
                                         </td>
 
-                                        <td>{income.received ? 'Recebido' : 'Pagamento futuro'}</td>
+                                        <td>{income.status === 'received' ? 'Recebido' : 'Previsto'}</td>
 
                                         <td className="ticker">
                                             {income.assetTicker}
