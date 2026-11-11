@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import type { ChangeEvent, FormEvent } from 'react'
+import type { ChangeEvent, FormEvent, ReactNode } from 'react'
 import type { B3PreviewResponse } from '../types/b3Import'
 import './B3ImportPreview.css'
 
@@ -8,12 +8,13 @@ const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL
 const number = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 8 })
 
 export type B3ImportPreviewProps = {
+  steps?: ReactNode
   previewFile: (file: File) => Promise<B3PreviewResponse>
   onPreviewLoaded?: (file: File, result: B3PreviewResponse) => void
   onFileChanged?: () => void
 }
 
-export default function B3ImportPreview({ previewFile, onPreviewLoaded, onFileChanged }: B3ImportPreviewProps) {
+export default function B3ImportPreview({ previewFile, onPreviewLoaded, onFileChanged, steps }: B3ImportPreviewProps) {
   const [selected, setSelected] = useState<File | null>(null)
   const [preview, setPreview] = useState<B3PreviewResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -63,7 +64,8 @@ export default function B3ImportPreview({ previewFile, onPreviewLoaded, onFileCh
 
   return (
     <section aria-labelledby="b3-heading" className="b3-import-preview">
-      <h2 id="b3-heading">Importação B3 — Pré-visualização</h2>
+      <h2 id="b3-heading">Negociações da B3</h2>
+      {steps}
       <p>Envie a planilha de <strong>Negociação</strong> da B3 em formato .xlsx. Esta etapa apenas lê e valida o arquivo: <strong>nenhuma operação é registrada na carteira.</strong></p>
       <form onSubmit={onSubmit}>
         <label htmlFor="b3-file">Planilha de negociações</label>{' '}

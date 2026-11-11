@@ -27,6 +27,23 @@ describe('Income payment presentation', () => {
         expect(within(table).getAllByRole('row')).toHaveLength(4)
         expect(within(table).getAllByRole('row').slice(1).every(row => within(row).getAllByRole('cell').length === 8)).toBe(true)
     })
+    it('shows an em dash for B3 received income without base date and preserves existing dates and amounts', async () => {
+        rows = [
+            { ...income, id: 10, assetTicker: 'HGLG11', baseDate: null, paymentDate: '2026-10-15', totalAmount: 59.67 },
+            { ...income, id: 11, assetTicker: 'KNRI11', baseDate: '2026-09-30', paymentDate: '2026-10-15', totalAmount: 49.50 },
+        ]
+        open()
+        const table = await screen.findByRole('table')
+        const allRows = within(table).getAllByRole('row')
+        const imported = within(allRows[1])
+        expect(imported.getByText('—').getAttribute('title')).toBe('Não informada pela B3')
+        expect(imported.getByText('15/10/2026')).toBeTruthy()
+        expect(imported.getByText(/R\$\s*59,67/)).toBeTruthy()
+        const withBaseDate = within(allRows[2])
+        expect(withBaseDate.getByText('30/09/2026')).toBeTruthy()
+        expect(withBaseDate.getByText('15/10/2026')).toBeTruthy()
+        expect(withBaseDate.getByText(/R\$\s*49,50/)).toBeTruthy()
+    })
     it('reports malformed payment status instead of calling it a future payment', async () => {
         rows = [{ ...income, received: undefined }]
         open()

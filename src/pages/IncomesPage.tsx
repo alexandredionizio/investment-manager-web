@@ -417,9 +417,9 @@ function IncomesPage() {
                                 {incomes.map((income) => (
                                     <tr key={income.id}>
                                         <td>
-                                            {formatDate(
-                                                income.baseDate,
-                                            )}
+                                            {income.baseDate
+                                                ? formatDate(income.baseDate)
+                                                : <span title="Não informada pela B3">—</span>}
                                         </td>
 
                                         <td>

@@ -1,0 +1,16 @@
+/* IM-054: navegação compacta, sem alterar os componentes existentes de movimentações. */
+.b3-import-tabs { display: flex; gap: .5rem; border-bottom: 1px solid #d6dfeb; margin: 1.5rem 0 1rem; }
+.b3-import-tabs button { background: #fff; border: 1px solid transparent; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; color: #183d6b; font: inherit; font-weight: 600; padding: .8rem 1.1rem; cursor: pointer; }
+.b3-import-tabs button.active { background: #183d6b; color: #fff; border-bottom-color: #183d6b; }
+.b3-import-tabs button:not(.active):hover { background: #eef3f9; color: #183d6b; }
+.b3-import-tabs button.active:hover { background: #214d83; color: #fff; }
+.b3-import-tabs button:focus-visible { outline: 2px solid #225da2; outline-offset: 2px; }
+.b3-income-steps { display: flex; align-items: center; justify-content: flex-start; gap: clamp(.6rem, 2vw, 1.5rem); list-style: none; padding: 0; margin: 1.3rem 0; flex-wrap: wrap; }
+.b3-income-steps li { display: flex; align-items: center; gap: .4rem; color: #687991; font-size: .9rem; }
+.b3-income-steps li.current { color: #173a67; font-weight: 700; }
+.b3-income-steps li.completed { color: #1c7352; }
+.b3-income-step-icon { width: 1.45rem; height: 1.45rem; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid currentColor; border-radius: 100%; font-size: .78rem; flex: 0 0 auto; }
+.b3-income-steps li.current .b3-income-step-icon { background: #173a67; color: white; border-color: #173a67; }
+.b3-income-steps li.completed .b3-income-step-icon { background: #1c7352; color: white; border-color: #1c7352; }
+.b3-income-pending { border-left: 3px solid #9aa9bc; padding: .7rem .9rem; background: #f3f6fa; color: #3e536f; }
+@media (max-width: 480px) { .b3-import-tabs button { flex: 1; } .b3-income-steps { gap: .75rem; } }

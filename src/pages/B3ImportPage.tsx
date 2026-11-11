@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import Header from '../components/Header'
 import B3ImportPreview from '../components/B3ImportPreview'
+import B3IncomePreview from '../components/B3IncomePreview'
+import './B3ImportPage.css'
 import B3BrokerMatching from '../components/B3BrokerMatching'
 import B3AssetRegistration from '../components/B3AssetRegistration'
 import B3Reconciliation from '../components/B3Reconciliation'
@@ -13,6 +15,7 @@ import { previewB3Spreadsheet, matchB3Spreadsheet, listB3BrokerOptions, confirmB
 import type { B3MatchResponse, B3BrokerOption, B3PreviewResponse, B3ReconciliationResponse, B3ImportCommitResponse } from '../types/b3Import'
 
 export default function B3ImportPage() {
+    const [activeTab, setActiveTab] = useState<'movements' | 'incomes'>('movements')
     const requestVersion = useRef(0)
     const reconciliationVersion = useRef(0)
     const commitVersion = useRef(0)
@@ -142,11 +145,45 @@ export default function B3ImportPage() {
         return result
     }, [file, loadMatches])
 
+    // A linha do tempo reflete o estado efetivo da importação, sem alterar o fluxo existente.
+    const movementsStep = commitResult ? 4 :
+        reconciliation && reconciliation.readyRows === reconciliation.totalRows &&
+        reconciliation.reviewRows === 0 && reconciliation.blockedRows === 0 ? 3 :
+        file ? 2 : 1
+
     return (
         <>
             <Header />
             <main style={{ maxWidth: 1440, margin: '0 auto', padding: '2rem 1rem' }}>
+                <h1 style={{ marginBottom: '0.4rem' }}>Importar B3</h1>
+                <p style={{ marginTop: 0, color: '#526785' }}>Selecione o tipo de informação que deseja importar.</p>
+                <div className="b3-import-tabs" role="tablist" aria-label="Tipo de importação B3">
+                    <button type="button" role="tab" id="b3-movements-tab" aria-controls="b3-movements-panel"
+                        aria-selected={activeTab === 'movements'} className={activeTab === 'movements' ? 'active' : ''}
+                        onClick={() => setActiveTab('movements')}>Movimentações</button>
+                    <button type="button" role="tab" id="b3-incomes-tab" aria-controls="b3-incomes-panel"
+                        aria-selected={activeTab === 'incomes'} className={activeTab === 'incomes' ? 'active' : ''}
+                        onClick={() => setActiveTab('incomes')}>Proventos Recebidos</button>
+                </div>
+                <section id="b3-incomes-panel" role="tabpanel" aria-labelledby="b3-incomes-tab" hidden={activeTab !== 'incomes'}>
+                    <B3IncomePreview />
+                </section>
+                <section id="b3-movements-panel" role="tabpanel" aria-labelledby="b3-movements-tab" hidden={activeTab !== 'movements'}>
                 <B3ImportPreview
+                    steps={
+                        <ol className="b3-income-steps" aria-label="Etapas da importação de movimentações">
+                                            {(['Arquivo', 'Conferência', 'Confirmação'] as const).map((label, index) => {
+                                                const order = index + 1
+                                                const complete = movementsStep > order
+                                                const current = movementsStep === order
+                                                return <li key={label} className={complete ? 'completed' : current ? 'current' : 'upcoming'}
+                                                    aria-current={current ? 'step' : undefined}>
+                                                    <span className="b3-income-step-icon" aria-hidden="true">{complete ? '✓' : order}</span>
+                                                    <span>{label}</span>
+                                                </li>
+                                            })}
+                                        </ol>
+                    }
                     previewFile={(selectedFile) => previewB3Spreadsheet(api, selectedFile)}
                     onFileChanged={onFileChanged}
                     onPreviewLoaded={onPreviewLoaded}
@@ -187,6 +224,7 @@ export default function B3ImportPage() {
                     result={commitResult}
                     onCommit={commit}
                 />}
+                </section>
             </main>
         </>
     )
