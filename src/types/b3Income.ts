@@ -27,8 +27,8 @@ export type B3IncomeReconciliationResponse = {
   needsReview: number
   blocked: number
   rows: { excelRow: number; ticker: string | null; assetId: number | null;
-    status: 'BLOCKED' | 'READY' | 'POSSIBLE_DUPLICATE'; messages: string[] }[]
+    status: 'BLOCKED' | 'READY' | 'POSSIBLE_DUPLICATE' | 'REVIEW_AMOUNT'; messages: string[]; expectedIncomeId?: number | null; expectedAmount?: number | null }[]
 }
 
 export type B3IncomeCommitResponse = { imported: number; totalCredited: number; incomeIds: number[] }
-export type B3IncomeCommitEntry = { excelRow: number }
+export type B3IncomeCommitEntry = { excelRow: number; confirmAmountDifference?: boolean }

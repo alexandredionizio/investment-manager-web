@@ -78,9 +78,9 @@ export default function B3IncomePreview() {
     }
   }
 
-  const candidates = reconciled?.rows.filter(r => r.assetId != null && r.status === 'READY') ?? []
+  const candidates = reconciled?.rows.filter(r => r.assetId != null && (r.status === 'READY' || r.status === 'REVIEW_AMOUNT')) ?? []
   const selections: B3IncomeCommitEntry[] = candidates.filter(r => chosen[r.excelRow])
-    .map(r => ({ excelRow: r.excelRow }))
+    .map(r => ({ excelRow: r.excelRow, confirmAmountDifference: r.status === 'REVIEW_AMOUNT' }))
   const canCommit = !committing && !busy && !reconciling && accepted && !!file && portfolioId != null &&
     selections.length > 0
 
@@ -147,26 +147,27 @@ export default function B3IncomePreview() {
         <p>{reconciled.identified} ativos identificados; {reconciled.blocked} registros bloqueados; {reconciled.needsReview} exigem conferência.</p>
         <table className="b3-table"><thead><tr><th>Linha</th><th>Ativo</th><th>Situação</th><th>Pendências</th></tr></thead>
           <tbody>{reconciled.rows.map(r => <tr key={r.excelRow}><td>{r.excelRow}</td><td>{r.ticker ?? '—'}</td>
-            <td>{r.status === 'BLOCKED' ? 'Bloqueado' : r.status === 'POSSIBLE_DUPLICATE' ? 'Possível duplicidade' : 'Pronto para importar'}</td>
-            <td>{r.messages.join(' ')}</td></tr>)}</tbody>
+            <td>{r.status === 'BLOCKED' ? 'Bloqueado' : r.status === 'POSSIBLE_DUPLICATE' ? 'Possível duplicidade' : r.status === 'REVIEW_AMOUNT' ? 'Revisar diferença no valor' : 'Pronto para importar'}</td>
+            <td>{r.messages.join(' ')}{r.status === 'REVIEW_AMOUNT' && r.expectedAmount != null
+              ? ` Previsão: ${fmt(r.expectedAmount)}; crédito efetivo: ${fmt(result.rows.find(x => x.excelRow === r.excelRow)?.creditedAmount ?? null)}.` : ''}</td></tr>)}</tbody>
         </table>
         {candidates.length > 0 && <div style={{ marginTop: '1rem' }}>
           <h3>Confirmar proventos identificados</h3>
-          <p>Os registros bloqueados e as possíveis duplicidades não serão importados. Selecione apenas os créditos que deseja registrar.</p>
+          <p>Os registros bloqueados e as possíveis duplicidades não serão importados. Para divergências de valor, confira a previsão e o crédito e autorize explicitamente a baixa pelo valor realmente recebido.</p>
           <div style={{ overflowX: 'auto' }}><table className="b3-table">
             <thead><tr><th>Importar</th><th>Ativo</th><th>Pagamento</th><th>Valor creditado</th></tr></thead>
             <tbody>{candidates.map(r => {
               const income = result.rows.find(x => x.excelRow === r.excelRow)
               return <tr key={r.excelRow}>
                 <td><input type="checkbox" aria-label={`Importar linha ${r.excelRow}`} checked={!!chosen[r.excelRow]} onChange={e => { setChosen(v => ({ ...v, [r.excelRow]: e.target.checked })); setAccepted(false) }} /></td>
-                <td>{r.ticker}</td><td>{income?.paymentDate ?? '—'}</td><td>{fmt(income?.creditedAmount ?? null)}</td>
+                <td>{r.ticker}{r.status === 'REVIEW_AMOUNT' ? ' (diferença confirmada ao selecionar)' : ''}</td><td>{income?.paymentDate ?? '—'}</td><td>{fmt(income?.creditedAmount ?? null)}</td>
 
               </tr>
             })}</tbody>
           </table></div>
           <label style={{ display: 'block', marginTop: '1rem' }}>
             <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />
-            {' '}Confirmo os proventos recebidos selecionados e autorizo a gravação dos valores creditados pela B3.
+            {' '}Confirmo os proventos recebidos selecionados, os valores efetivamente creditados pela B3 e, quando indicadas, as diferenças em relação às previsões.
           </label>
           <button type="button" disabled={!canCommit} onClick={() => void commit()}>{committing ? 'Importando...' : `Confirmar importação de ${selections.length} provento(s)`}</button>
         </div>}
