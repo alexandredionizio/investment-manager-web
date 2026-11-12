@@ -363,6 +363,56 @@ describe('Dashboard data availability', () => {
         expect(screen.queryByText('+0,00%')).toBeNull()
         expect(screen.getByRole('button', { name: 'Carteira' }).textContent).toContain('Nova')
     })
+    it('IM-033: descarta resposta atrasada de período ao trocar de carteira', async () => {
+        populated = true
+        let resolveOld!: (value: unknown) => void
+        const pending = new Promise(resolve => { resolveOld = resolve })
+        override = (url, config) => {
+            if (url === '/portfolios') return [portfolio, { ...portfolio, id: 2, name: 'Nova' }]
+            if (url === '/portfolios/1/benchmark-comparison' && config?.params.period === 'THREE_MONTHS') return pending
+            return unchanged
+        }
+        open()
+        await ready()
+        const section = screen.getByRole('heading', { name: 'Rentabilidade ponderada' }).closest('section')!
+        fireEvent.click(within(section).getByRole('button', { name: '3M' }))
+        await waitFor(() => expect((within(section).getByRole('button', { name: '3M' }) as HTMLButtonElement).disabled).toBe(true))
+        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Selecionar Nova' }))
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Carteira' }).textContent).toContain('Nova'))
+        await waitFor(() => expect(within(section).getByTestId('chart')).toBeTruthy())
+        const comparisonForNova = within(section).getByTestId('chart').textContent
+        await act(async () => resolveOld([{ ...comparison, portfolioReturn: 0.75 }]))
+        expect(within(section).getByTestId('chart').textContent).toBe(comparisonForNova)
+        expect(screen.getByRole('button', { name: 'Carteira' }).textContent).toContain('Nova')
+        expect(within(section).queryByRole('alert')).toBeNull()
+    })
+    it('IM-033: ignora histórico atrasado após trocar a carteira', async () => {
+        populated = true
+        let resolveOld!: (value: unknown) => void
+        const pending = new Promise(resolve => { resolveOld = resolve })
+        override = (url, config) => {
+            if (url === '/portfolios') return [portfolio, { ...portfolio, id: 2, name: 'Nova' }]
+            if (url === '/portfolios/1/history' && config?.params.period === 'THREE_MONTHS') return pending
+            return unchanged
+        }
+        open()
+        await ready()
+        const section = screen.getByRole('heading', { name: 'Evolução patrimonial' }).closest('section')!
+        fireEvent.click(within(section).getByRole('button', { name: '3M' }))
+        await waitFor(() => expect((within(section).getByRole('button', { name: '3M' }) as HTMLButtonElement).disabled).toBe(true))
+        fireEvent.click(screen.getByRole('button', { name: 'Carteira' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Selecionar Nova' }))
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Carteira' }).textContent).toContain('Nova'))
+        await waitFor(() => expect(within(section).getByTestId('chart')).toBeTruthy())
+        const currentChart = within(section).getByTestId('chart').textContent
+        await act(async () => resolveOld({
+            portfolioId: 1, period: 'THREE_MONTHS', startDate: '2026-09-20',
+            endDate: '2026-09-21', granularity: 'DAILY',
+            points: [{ date: '2026-09-21', value: 999999 }],
+        }))
+        expect(within(section).getByTestId('chart').textContent).toBe(currentChart)
+    })
 })
 
 

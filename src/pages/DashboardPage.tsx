@@ -134,6 +134,8 @@ function DashboardPage() {
     const [dashboardReady, setDashboardReady] = useState(false)
     const [pendingSections, setPendingSections] = useState<Partial<Record<keyof DashboardData, boolean>>>({})
     const loadVersion = useRef(0)
+    const comparisonRequestVersion = useRef(0)
+    const historyRequestVersion = useRef(0)
     const [portfolioAction, setPortfolioAction] = useState<'create' | 'rename' | null>(null)
     const [portfolioMenuOpen, setPortfolioMenuOpen] = useState(false)
     const [portfolioActionsOpen, setPortfolioActionsOpen] = useState(false)
@@ -150,6 +152,10 @@ function DashboardPage() {
         historySelection: Parameters<typeof loadDashboardData>[1],
         returnSelection: Parameters<typeof loadDashboardData>[2]) {
         const version = ++loadVersion.current
+        comparisonRequestVersion.current++
+        historyRequestVersion.current++
+        setHistoryLoading(false)
+        setReturnLoading(false)
         setLoading(false)
         setDashboardReady(true)
         setError('')
@@ -222,7 +228,7 @@ function DashboardPage() {
             }
         }
         loadDashboard()
-        return () => { active = false; loadVersion.current++ }
+        return () => { active = false; loadVersion.current++; comparisonRequestVersion.current++; historyRequestVersion.current++ }
     }, [])
 
     async function submitPortfolioDeletion(event: FormEvent<HTMLFormElement>) {
@@ -340,6 +346,8 @@ function DashboardPage() {
 
         if (period === 'CUSTOM') {
 
+            historyRequestVersion.current++
+            setHistoryLoading(false)
             setHistoryPeriod('CUSTOM')
             setError('')
 
@@ -347,6 +355,8 @@ function DashboardPage() {
         }
 
         setHistoryPeriod(period)
+        const requestVersion = ++historyRequestVersion.current
+        const portfolioVersion = loadVersion.current
 
         try {
 
@@ -361,14 +371,17 @@ function DashboardPage() {
                     period,
                 )
 
-            setHistoryPeriod(period)
+            if (requestVersion !== historyRequestVersion.current || portfolioVersion !== loadVersion.current) return
             setPortfolioHistory(historyData)
 
         } catch (error) {
-            setIssues(current => ({ ...current, history: dashboardErrorMessage(error) }))
+            if (requestVersion === historyRequestVersion.current && portfolioVersion === loadVersion.current) {
+                setIssues(current => ({ ...current, history: dashboardErrorMessage(error) }))
+            }
         } finally {
-
-            setHistoryLoading(false)
+            if (requestVersion === historyRequestVersion.current && portfolioVersion === loadVersion.current) {
+                setHistoryLoading(false)
+            }
         }
     }
 
@@ -396,6 +409,8 @@ function DashboardPage() {
             return
         }
 
+        const requestVersion = ++historyRequestVersion.current
+        const portfolioVersion = loadVersion.current
         try {
 
             setHistoryLoading(true)
@@ -411,13 +426,17 @@ function DashboardPage() {
                     customEndDate,
                 )
 
+            if (requestVersion !== historyRequestVersion.current || portfolioVersion !== loadVersion.current) return
             setPortfolioHistory(historyData)
 
         } catch (error) {
-            setIssues(current => ({ ...current, history: dashboardErrorMessage(error) }))
+            if (requestVersion === historyRequestVersion.current && portfolioVersion === loadVersion.current) {
+                setIssues(current => ({ ...current, history: dashboardErrorMessage(error) }))
+            }
         } finally {
-
-            setHistoryLoading(false)
+            if (requestVersion === historyRequestVersion.current && portfolioVersion === loadVersion.current) {
+                setHistoryLoading(false)
+            }
         }
     }
 
@@ -430,12 +449,16 @@ function DashboardPage() {
         }
 
         if (period === 'CUSTOM') {
+            comparisonRequestVersion.current++
+            setReturnLoading(false)
             setReturnPeriod('CUSTOM')
             setError('')
             return
         }
 
         setReturnPeriod(period)
+        const requestVersion = ++comparisonRequestVersion.current
+        const portfolioVersion = loadVersion.current
 
         try {
             setReturnLoading(true)
@@ -449,13 +472,17 @@ function DashboardPage() {
                     period,
                 )
 
-            setReturnPeriod(period)
+            if (requestVersion !== comparisonRequestVersion.current || portfolioVersion !== loadVersion.current) return
             setBenchmarkComparison(benchmarkComparisonData)
 
         } catch (error) {
-            setIssues(current => ({ ...current, comparison: dashboardErrorMessage(error) }))
+            if (requestVersion === comparisonRequestVersion.current && portfolioVersion === loadVersion.current) {
+                setIssues(current => ({ ...current, comparison: dashboardErrorMessage(error) }))
+            }
         } finally {
-            setReturnLoading(false)
+            if (requestVersion === comparisonRequestVersion.current && portfolioVersion === loadVersion.current) {
+                setReturnLoading(false)
+            }
         }
     }
 
@@ -479,6 +506,8 @@ function DashboardPage() {
             return
         }
 
+        const requestVersion = ++comparisonRequestVersion.current
+        const portfolioVersion = loadVersion.current
         try {
             setReturnLoading(true)
             setBenchmarkComparison([])
@@ -493,12 +522,17 @@ function DashboardPage() {
                     returnCustomEndDate,
                 )
 
+            if (requestVersion !== comparisonRequestVersion.current || portfolioVersion !== loadVersion.current) return
             setBenchmarkComparison(benchmarkComparisonData)
 
         } catch (error) {
-            setIssues(current => ({ ...current, comparison: dashboardErrorMessage(error) }))
+            if (requestVersion === comparisonRequestVersion.current && portfolioVersion === loadVersion.current) {
+                setIssues(current => ({ ...current, comparison: dashboardErrorMessage(error) }))
+            }
         } finally {
-            setReturnLoading(false)
+            if (requestVersion === comparisonRequestVersion.current && portfolioVersion === loadVersion.current) {
+                setReturnLoading(false)
+            }
         }
     }
 
@@ -971,11 +1005,11 @@ function DashboardPage() {
 
                             </article>
 
-                        </div>
+                            {selectedPortfolioId !== null && (
+                                <XirrPreviewCard portfolioId={selectedPortfolioId} loadPreview={loadXirrPreview} />
+                            )}
 
-                        {selectedPortfolioId !== null && (
-                            <XirrPreviewCard portfolioId={selectedPortfolioId} loadPreview={loadXirrPreview} />
-                        )}
+                        </div>
 
                         <section className="dashboard-card dashboard-return-section">
 

@@ -52,8 +52,8 @@ export function XirrPreviewCard({ portfolioId, loadPreview }: Props) {
     : null;
 
   return (
-    <section aria-label="XIRR anualizada — prévia" className="dashboard-card dashboard-return-section">
-      <h3>XIRR anualizada — prévia</h3>
+    <article aria-label="XIRR anualizada" className="dashboard-metric-card">
+      <span>XIRR anualizada</span>
       {!portfolioId ? (
         <p>Selecione uma carteira para consultar a XIRR.</p>
       ) : loading ? (
@@ -64,13 +64,31 @@ export function XirrPreviewCard({ portfolioId, loadPreview }: Props) {
         <p>Sem dados para apresentação.</p>
       ) : annualRate !== null ? (
         <>
-          <p className="xirr-preview-rate">{annualRate} ao ano</p>
-          <p>{data.notice?.trim() || 'Cálculo provisório, sujeito à conciliação dos fluxos.'}</p>
+          <strong>{annualRate} ao ano</strong>
         </>
       ) : (
         <p>{unavailableReason(data)}</p>
       )}
-      <small>Indicador provisório. Não substitui a rentabilidade atual da carteira.</small>
-    </section>
+      {annualRate !== null && data && (
+        <details style={{ position: 'relative', display: 'inline-block', alignSelf: 'flex-start' }}>
+          <summary
+            aria-label="Informações sobre XIRR"
+            title="Informações sobre XIRR"
+            style={{ cursor: 'pointer', listStyle: 'none', width: 'fit-content' }}
+          >ⓘ</summary>
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+            width: 'min(310px, 75vw)', boxSizing: 'border-box',
+            padding: '12px 14px', background: '#fff', color: '#142e50',
+            border: '1px solid #d8e0ea', borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.14)', zIndex: 20,
+            fontSize: 14, lineHeight: 1.5,
+          }}>
+            <p>Indicador provisório. Saldos, taxas, impostos e fluxos financeiros dependem de conciliação.</p>
+            <p>Confira os extratos antes de considerar a taxa definitiva.</p>
+          </div>
+        </details>
+      )}
+    </article>
   );
 }

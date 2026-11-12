@@ -9,8 +9,8 @@ describe('IM-031.5 — XIRR anualizada prévia', () => {
     const loadPreview = vi.fn().mockResolvedValue({ status: 'PROVISIONAL_XIRR', annualRate: 0.12, notice: 'Prévia sujeita a conciliação' })
     render(<XirrPreviewCard portfolioId={17} loadPreview={loadPreview} />)
     expect(await screen.findByText('12,00% ao ano')).toBeTruthy()
-    expect(screen.getByText('Prévia sujeita a conciliação')).toBeTruthy()
-    expect(screen.getByText(/Não substitui a rentabilidade atual/i)).toBeTruthy()
+    expect(screen.getByLabelText('Informações sobre XIRR')).toBeTruthy()
+    expect(screen.getByText(/Confira os extratos antes de considerar a taxa definitiva/i)).toBeTruthy()
     expect(loadPreview).toHaveBeenCalledWith(17)
   })
 
