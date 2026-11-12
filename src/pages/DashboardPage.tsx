@@ -228,7 +228,16 @@ function DashboardPage() {
             }
         }
         loadDashboard()
-        return () => { active = false; loadVersion.current++; comparisonRequestVersion.current++; historyRequestVersion.current++ }
+        // Captura os objetos ref durante o efeito; a limpeza invalida respostas pendentes.
+        const loadRef = loadVersion
+        const comparisonRef = comparisonRequestVersion
+        const historyRef = historyRequestVersion
+        return () => {
+            active = false
+            loadRef.current++
+            comparisonRef.current++
+            historyRef.current++
+        }
     }, [])
 
     async function submitPortfolioDeletion(event: FormEvent<HTMLFormElement>) {

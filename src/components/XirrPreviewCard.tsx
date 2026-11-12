@@ -28,22 +28,30 @@ function unavailableReason(preview: XirrPreview): string {
 }
 
 export function XirrPreviewCard({ portfolioId, loadPreview }: Props) {
-  const [data, setData] = useState<XirrPreview | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  // A requisição mantém a carteira de origem; respostas antigas nunca aparecem
+  // durante uma troca de carteira, sem setState síncrono dentro do efeito.
+  const [request, setRequest] = useState<{
+    portfolioId: number;
+    data: XirrPreview | null;
+    error: boolean;
+  } | null>(null);
+  const validPortfolioId = typeof portfolioId === 'number'
+    && Number.isSafeInteger(portfolioId) && portfolioId > 0;
+  const currentRequest = validPortfolioId && request?.portfolioId === portfolioId ? request : null;
+  const data = currentRequest?.data ?? null;
+  const error = currentRequest?.error ?? false;
+  const loading = validPortfolioId && !currentRequest;
 
   useEffect(() => {
+    if (typeof portfolioId !== 'number' || !Number.isSafeInteger(portfolioId) || portfolioId <= 0) return;
     let active = true;
-    setData(null);
-    setError(false);
-    setLoading(false);
-    if (!portfolioId || !Number.isSafeInteger(portfolioId) || portfolioId <= 0) return;
-
-    setLoading(true);
     loadPreview(portfolioId)
-      .then((result) => { if (active) setData(result); })
-      .catch(() => { if (active) setError(true); })
-      .finally(() => { if (active) setLoading(false); });
+      .then(result => {
+        if (active) setRequest({ portfolioId, data: result, error: false });
+      })
+      .catch(() => {
+        if (active) setRequest({ portfolioId, data: null, error: true });
+      });
     return () => { active = false; };
   }, [portfolioId, loadPreview]);
 
