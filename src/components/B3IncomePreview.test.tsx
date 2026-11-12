@@ -71,6 +71,8 @@ describe('IM-054: prévia de proventos B3', () => {
     fireEvent.click(confirm)
     await waitFor(() => expect(commitB3Incomes).toHaveBeenCalledWith(file, 3,
       [{ excelRow: 2, confirmAmountDifference: true }]))
+    expect((await screen.findByRole('link', { name: 'Ver proventos da carteira' })).getAttribute('href')).toBe('/incomes')
+    expect(screen.getByRole('link', { name: 'Ver indicadores atualizados' }).getAttribute('href')).toBe('/dashboard')
   })
 
   it('IM-039: mostra linha, movimento e motivo das exclusões sem gerar lançamentos', async () => {

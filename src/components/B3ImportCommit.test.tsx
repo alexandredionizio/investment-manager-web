@@ -22,6 +22,18 @@ describe('B3ImportCommit', () => {
     fireEvent.click(button)
     expect(onCommit).toHaveBeenCalledTimes(1)
   })
+  it('IM-044: nova conciliação exige nova confirmação explícita', () => {
+    const onCommit = vi.fn(async () => {})
+    const view = (generation: number) => <B3ImportCommit key={`reconciliation-${generation}`} reconciliation={ready}
+      loading={false} error="" result={null} onCommit={onCommit} />
+    const { rerender } = render(view(1))
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect((screen.getByRole('button', { name: /importar definitivamente/i }) as HTMLButtonElement).disabled).toBe(false)
+    rerender(view(2))
+    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByRole('button', { name: /importar definitivamente/i }) as HTMLButtonElement).disabled).toBe(true)
+    expect(onCommit).not.toHaveBeenCalled()
+  })
   it('bloqueia lote em revisão', () => {
     const onCommit = vi.fn(async () => {})
     render(<B3ImportCommit reconciliation={{ ...ready, readyRows: 1, reviewRows: 1 }} loading={false} error="" result={null} onCommit={onCommit} />)

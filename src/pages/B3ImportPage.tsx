@@ -20,6 +20,7 @@ export default function B3ImportPage() {
     const requestVersion = useRef(0)
     const reconciliationVersion = useRef(0)
     const commitVersion = useRef(0)
+    const [confirmationVersion, setConfirmationVersion] = useState(0)
     const [portfolios, setPortfolios] = useState<PortfolioResponse[]>([])
     const [portfolioId, setPortfolioId] = useState<number | null>(null)
     const [reconciliation, setReconciliation] = useState<B3ReconciliationResponse | null>(null)
@@ -50,6 +51,7 @@ export default function B3ImportPage() {
     const reconcile = async () => {
         if (!file || !portfolioId || pending) return
         const version = ++reconciliationVersion.current
+        setConfirmationVersion(previous => previous + 1)
         setReconciling(true)
         setReconciliation(null)
         setReconciliationError('')
@@ -224,7 +226,7 @@ export default function B3ImportPage() {
                     error={reconciliationError}
                 />}
                 {file && <B3ImportCommit
-                    key={`${file.name}-${file.lastModified}-${portfolioId ?? 'sem-carteira'}`}
+                    key={`${file.name}-${file.lastModified}-${portfolioId ?? 'sem-carteira'}-${confirmationVersion}`}
                     reconciliation={reconciliation}
                     loading={committing || reconciling || pending}
                     error={commitError}

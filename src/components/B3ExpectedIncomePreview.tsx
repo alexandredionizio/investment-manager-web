@@ -111,7 +111,10 @@ export default function B3ExpectedIncomePreview() {
           <label style={{ display: 'block', marginTop: '1rem' }}><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />{' '}Confirmo a importação dos eventos selecionados apenas como proventos previstos, sem registrar recebimentos.</label>
           <button type="button" disabled={!canCommit} onClick={() => void commit()}>{busy ? 'Importando...' : `Confirmar importação de ${rows.length} previsão(ões)`}</button>
         </div>}
-        {committed && <p role="status">Previsões registradas: {committed.imported} evento(s), total previsto {money(committed.totalExpectedNet)}. Nenhum crédito foi lançado.</p>}
+        {committed && <div role="status">
+          <p>Previsões registradas: {committed.imported} evento(s), total previsto {money(committed.totalExpectedNet)}. Nenhum crédito foi lançado.</p>
+          <p><a href="/incomes">Ver proventos da carteira</a> · <a href="/dashboard">Ver indicadores atualizados</a></p>
+        </div>}
       </div>}
       <div style={{ overflowX: 'auto' }}><table className="b3-table"><thead><tr><th>Linha</th><th>Ativo B3</th><th>Evento</th><th>Data prevista</th><th>Instituição</th><th>Qtde.</th><th>Valor líquido previsto</th><th>Conferência</th></tr></thead>
         <tbody>{result.rows.map(row => <tr key={row.excelRow}>

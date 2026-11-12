@@ -42,5 +42,7 @@ describe('Proventos previstos B3', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar importação de 1 previsão(ões)' }))
     await waitFor(() => expect(commitB3ExpectedIncomes).toHaveBeenCalledOnce())
     expect(await screen.findByText(/Previsões registradas: 1 evento/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ver proventos da carteira' }).getAttribute('href')).toBe('/incomes')
+    expect(screen.getByRole('link', { name: 'Ver indicadores atualizados' }).getAttribute('href')).toBe('/dashboard')
   })
 })

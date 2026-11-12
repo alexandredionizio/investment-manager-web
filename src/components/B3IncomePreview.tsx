@@ -183,7 +183,10 @@ export default function B3IncomePreview() {
           </label>
           <button type="button" disabled={!canCommit} onClick={() => void commit()}>{committing ? 'Importando...' : `Confirmar importação de ${selections.length} provento(s)`}</button>
         </div>}
-        {committed && <p role="status">Importação concluída: {committed.imported} provento(s), total creditado {fmt(committed.totalCredited)}.</p>}
+        {committed && <div role="status">
+          <p>Importação concluída: {committed.imported} provento(s), total creditado {fmt(committed.totalCredited)}.</p>
+          <p><a href="/incomes">Ver proventos da carteira</a> · <a href="/dashboard">Ver indicadores atualizados</a></p>
+        </div>}
       </div>}
       <div style={{ overflowX: 'auto' }}><table className="b3-table">
         <thead><tr><th>Linha</th><th>Pagamento</th><th>Tipo</th><th>Produto B3</th><th>Instituição</th><th>Qtde.</th><th>Unitário</th><th>Valor creditado</th><th>Conferência</th></tr></thead>
