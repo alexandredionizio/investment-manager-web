@@ -15,6 +15,9 @@ import {
 } from 'recharts'
 
 import Header from '../components/Header'
+import api from '../services/api'
+import { getXirrPreview } from '../services/xirrPreviewService'
+import { XirrPreviewCard } from '../components/XirrPreviewCard'
 import ValuationDetails from '../components/ValuationDetails'
 import { summarizeValuations, benchmarkAvailability } from '../services/valuation'
 
@@ -57,6 +60,9 @@ const monthLabels = [
     'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
 ]
+
+// Função estável: evita requisições repetidas ao renderizar o Dashboard.
+const loadXirrPreview = (portfolioId: number) => getXirrPreview(api, portfolioId)
 
 function DashboardPage() {
 
@@ -966,6 +972,10 @@ function DashboardPage() {
                             </article>
 
                         </div>
+
+                        {selectedPortfolioId !== null && (
+                            <XirrPreviewCard portfolioId={selectedPortfolioId} loadPreview={loadXirrPreview} />
+                        )}
 
                         <section className="dashboard-card dashboard-return-section">
 
