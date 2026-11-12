@@ -73,4 +73,33 @@ describe('Income payment presentation', () => {
         expect(screen.queryByRole('table')).toBeNull()
         expect(screen.queryByText('Pagamento futuro')).toBeNull()
     })
+    it('IM-032: does not show an already registered income twice as B3 expected', async () => {
+        rows = [{ ...income, paymentDate: '2026-11-16', received: false }]
+        vi.mocked(findExpectedIncomesByPortfolio).mockResolvedValue([{
+            id: 8, portfolioId: 1, assetId: 1, assetTicker: 'ITUB4',
+            type: 'DIVIDEND', expectedPaymentDate: '2026-11-16', quantity: 100,
+            expectedNetAmount: 50, institution: 'XP',
+        }])
+        vi.spyOn(api, 'get').mockImplementation(async (url: string) => ({
+            data: url === '/incomes' ? rows : url === '/portfolios' ? [{ id: 1, name: 'Teste' }] : [],
+        }) as AxiosResponse)
+        open()
+        const table = await screen.findByRole('table')
+        expect(within(table).getAllByRole('row')).toHaveLength(2)
+        expect(within(table).getAllByText('ITUB4')).toHaveLength(1)
+    })
+    it('IM-032: retains different B3 events instead of removing by ticker alone', async () => {
+        rows = [{ ...income, paymentDate: '2026-11-16', received: false }]
+        vi.mocked(findExpectedIncomesByPortfolio).mockResolvedValue([{
+            id: 9, portfolioId: 1, assetId: 1, assetTicker: 'ITUB4',
+            type: 'DIVIDEND', expectedPaymentDate: '2026-11-17', quantity: 100,
+            expectedNetAmount: 50, institution: 'XP',
+        }])
+        vi.spyOn(api, 'get').mockImplementation(async (url: string) => ({
+            data: url === '/incomes' ? rows : url === '/portfolios' ? [{ id: 1, name: 'Teste' }] : [],
+        }) as AxiosResponse)
+        open()
+        const table = await screen.findByRole('table')
+        expect(within(table).getAllByRole('row')).toHaveLength(3)
+    })
 })

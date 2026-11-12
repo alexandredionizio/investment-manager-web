@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AxiosError } from 'axios'
 import Header from '../components/Header'
+import { calculateIncomeMetrics } from '../utils/incomeMetrics'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findAllAssets } from '../services/assetService'
 import {
@@ -35,6 +36,7 @@ function IncomesPage() {
     const [portfolioId, setPortfolioId] =
         useState('')
 
+    const [historyPortfolioId, setHistoryPortfolioId] = useState('')
     const [historyFilter, setHistoryFilter] = useState<'all' | 'received' | 'expected'>('all')
     const [expected, setExpected] = useState<ExpectedIncomeRecord[]>([])
     const [expectedLoading, setExpectedLoading] = useState(true)
@@ -116,23 +118,38 @@ function IncomesPage() {
         return () => { live = false }
     }, [loading, portfolios])
 
+    // Um provento já cadastrado não deve reaparecer como previsão da B3.
+    // Usar também carteira, quantidade e valor impede ocultar eventos distintos.
+    const expectedNotRegistered = expected.filter(b3 => !incomes.some(income =>
+        income.portfolioId === b3.portfolioId &&
+        income.assetTicker.toUpperCase() === b3.assetTicker.toUpperCase() &&
+        income.type === b3.type &&
+        income.paymentDate === b3.expectedPaymentDate &&
+        Math.abs(income.quantity - b3.quantity) < 0.00000001 &&
+        Math.abs(income.totalAmount - b3.expectedNetAmount) < 0.01
+    ))
     const historyItems = [
         ...incomes.map(i => ({
-            key: `income-${i.id}`, baseDate: i.baseDate, paymentDate: i.paymentDate,
+            key: `income-${i.id}`, portfolioId: i.portfolioId, baseDate: i.baseDate, paymentDate: i.paymentDate,
             status: i.received ? 'received' as const : 'expected' as const,
             assetTicker: i.assetTicker, type: i.type, quantity: i.quantity,
             amountPerUnit: i.amountPerUnit, totalAmount: i.totalAmount,
             source: 'income' as const,
         })),
-        ...expected.map(i => ({
-            key: `b3-expected-${i.id}`, baseDate: null, paymentDate: i.expectedPaymentDate,
+        ...expectedNotRegistered.map(i => ({
+            key: `b3-expected-${i.id}`, portfolioId: i.portfolioId, baseDate: null, paymentDate: i.expectedPaymentDate,
             status: 'expected' as const, assetTicker: i.assetTicker, type: i.type,
             quantity: i.quantity,
             amountPerUnit: i.quantity ? i.expectedNetAmount / i.quantity : 0,
             totalAmount: i.expectedNetAmount, source: 'b3-expected' as const,
         })),
     ]
-    const displayedItems = historyItems.filter(item => historyFilter === 'all' || item.status === historyFilter)
+    const displayedItems = historyItems.filter(item =>
+        (historyPortfolioId === '' || item.portfolioId === Number(historyPortfolioId)) &&
+        (historyFilter === 'all' || item.status === historyFilter)
+    )
+    // Somente proventos cadastrados como recebidos; previsoes B3 nao sao credito.
+    const incomeMetrics = calculateIncomeMetrics(incomes, historyPortfolioId)
 
     async function reloadIncomes() {
         const data = await findAllIncomes()
@@ -434,6 +451,14 @@ function IncomesPage() {
                             </p>
                         </div>
                         <div className="income-form-field" style={{ minWidth: 185 }}>
+                            <label htmlFor="income-history-portfolio">Carteira do histórico</label>
+                            <select id="income-history-portfolio" value={historyPortfolioId}
+                                onChange={e => setHistoryPortfolioId(e.target.value)}>
+                                <option value="">Todas as carteiras</option>
+                                {portfolios.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                        </div>
+                        <div className="income-form-field" style={{ minWidth: 185 }}>
                             <label htmlFor="income-history-filter">Situação</label>
                             <select id="income-history-filter" value={historyFilter}
                                 onChange={e => setHistoryFilter(e.target.value as 'all' | 'received' | 'expected')}>
@@ -445,6 +470,26 @@ function IncomesPage() {
                     </div>
 
                     {expectedError && <p role="alert">Previsões B3 indisponíveis. O histórico abaixo pode estar incompleto.</p>}
+                    {!loading && !error && (
+                        <div className="dashboard-metrics" aria-label="Indicadores de proventos">
+                            <article className="dashboard-metric-card">
+                                <span>Acumulado recebido</span>
+                                <strong>{formatCurrency(incomeMetrics.total)}</strong>
+                                <small>Proventos registrados como recebidos</small>
+                            </article>
+                            <article className="dashboard-metric-card">
+                                <span>Recebido nos últimos 12 meses</span>
+                                <strong>{formatCurrency(incomeMetrics.last12Total)}</strong>
+                            </article>
+                            <article className="dashboard-metric-card">
+                                <span>Média mensal com recebimentos (12M)</span>
+                                <strong>{incomeMetrics.monthsWithReceipts
+                                    ? formatCurrency(incomeMetrics.averageActiveMonth)
+                                    : 'Sem dados suficientes'}</strong>
+                                <small>Considera apenas meses com proventos recebidos</small>
+                            </article>
+                        </div>
+                    )}
                     {loading || expectedLoading ? (
                         <p>Carregando proventos...</p>
                     ) : displayedItems.length === 0 ? (
