@@ -127,6 +127,18 @@ export default function B3IncomePreview() {
     {error && <p role="alert">{error}</p>}
     {result && <div aria-live="polite">
       <p><strong>{result.incomeRows}</strong> proventos identificados; {result.skippedRows} outros movimentos ignorados.</p>
+      {result.skippedRows > 0 && <section aria-label="Movimentações ignoradas da B3" style={{ marginTop: '1rem' }}>
+        <h3>Movimentações não importadas</h3>
+        <p>Estes eventos não são proventos reconhecidos. Nenhum lançamento automático foi realizado para eles.</p>
+        {result.skippedDetails && result.skippedDetails.length > 0
+          ? <div style={{ overflowX: 'auto' }}><table className="b3-table">
+              <thead><tr><th>Linha</th><th>Movimentação</th><th>Motivo</th></tr></thead>
+              <tbody>{result.skippedDetails.map(item => <tr key={item.lineNumber}>
+                <td>{item.lineNumber}</td><td>{item.movement}</td><td>{item.reason}</td>
+              </tr>)}</tbody>
+            </table></div>
+          : <p>O detalhamento das linhas ignoradas não foi fornecido pela API. Verifique se o backend está atualizado.</p>}
+      </section>}
       <p>A data do extrato é a data do crédito recebido. Não é necessário informar data-base.</p>
       <p className="b3-income-pending" role="status">Somente proventos com ativo cadastrado, dados válidos e sem suspeita de duplicidade podem ser importados. Confira e confirme os créditos selecionados.</p>
       <div style={{ margin: '1rem 0', display: 'flex', gap: '.75rem', alignItems: 'end', flexWrap: 'wrap' }}>

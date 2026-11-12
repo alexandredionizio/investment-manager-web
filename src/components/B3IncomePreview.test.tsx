@@ -73,4 +73,43 @@ describe('IM-054: prévia de proventos B3', () => {
       [{ excelRow: 2, confirmAmountDifference: true }]))
   })
 
+  it('IM-039: mostra linha, movimento e motivo das exclusões sem gerar lançamentos', async () => {
+    vi.mocked(findAllPortfolios).mockResolvedValue([])
+    vi.mocked(previewB3Incomes).mockResolvedValue({
+      fileName: 'movimentacao.xlsx', totalRows: 2, incomeRows: 0, skippedRows: 2,
+      rows: [], skippedDetails: [
+        { lineNumber: 2, movement: 'Transferência', reason: 'Movimentação não reconhecida como provento' },
+        { lineNumber: 3, movement: 'Direito de Subscrição', reason: 'Sem lançamento automático' },
+      ],
+    })
+    render(<B3IncomePreview />)
+    const file = new File(['arquivo fictício'], 'movimentacao.xlsx')
+    fireEvent.change(screen.getByLabelText('Planilha de movimentação (.xlsx)'), { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: 'Pré-visualizar proventos recebidos' }))
+    const region = await screen.findByRole('region', { name: 'Movimentações ignoradas da B3' })
+    expect(region.textContent).toContain('Transferência')
+    expect(region.textContent).toContain('Direito de Subscrição')
+    expect(region.textContent).toContain('Movimentação não reconhecida como provento')
+    expect(region.textContent).toContain('Sem lançamento automático')
+    expect(region.querySelectorAll('tbody tr')).toHaveLength(2)
+    expect(region.querySelectorAll('tbody tr')[0].textContent).toContain('2')
+    expect(region.querySelectorAll('tbody tr')[1].textContent).toContain('3')
+    expect(reconcileB3Incomes).not.toHaveBeenCalled()
+    expect(commitB3Incomes).not.toHaveBeenCalled()
+  })
+
+  it('IM-039: avisa quando a API antiga informa ignorados sem detalhes', async () => {
+    vi.mocked(findAllPortfolios).mockResolvedValue([])
+    vi.mocked(previewB3Incomes).mockResolvedValue({
+      fileName: 'movimentacao.xlsx', totalRows: 1, incomeRows: 0, skippedRows: 1, rows: [],
+    })
+    render(<B3IncomePreview />)
+    fireEvent.change(screen.getByLabelText('Planilha de movimentação (.xlsx)'), {
+      target: { files: [new File(['arquivo fictício'], 'movimentacao.xlsx')] },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Pré-visualizar proventos recebidos' }))
+    expect(await screen.findByText(/O detalhamento das linhas ignoradas não foi fornecido pela API/)).toBeTruthy()
+    expect(commitB3Incomes).not.toHaveBeenCalled()
+  })
+
 })

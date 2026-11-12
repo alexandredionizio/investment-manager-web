@@ -12,11 +12,18 @@ export type B3IncomeRow = {
   warnings: string[]
 }
 
+export type B3SkippedMovement = {
+  lineNumber: number
+  movement: string
+  reason: string
+}
+
 export type B3IncomePreviewResponse = {
   fileName: string
   totalRows: number
   incomeRows: number
   skippedRows: number
+  skippedDetails?: B3SkippedMovement[]
   rows: B3IncomeRow[]
 }
 
