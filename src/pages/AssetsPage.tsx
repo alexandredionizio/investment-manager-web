@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Header from '../components/Header'
-import { findAllAssets } from '../services/assetService'
+import { findAllAssets, findAssetIdentifiers } from '../services/assetService'
+import type { HistoricalIdentifier } from '../services/assetService'
 import type {
     AssetResponse,
     AssetType,
@@ -9,6 +10,32 @@ import type {
 function AssetsPage() {
     const [assets, setAssets] =
         useState<AssetResponse[]>([])
+
+    const historyRequest = useRef(0)
+    const [selectedHistory, setSelectedHistory] = useState<number | null>(null)
+    const [identifiers, setIdentifiers] = useState<HistoricalIdentifier[]>([])
+    const [historyLoading, setHistoryLoading] = useState(false)
+    const [historyError, setHistoryError] = useState('')
+
+    async function toggleHistory(assetId: number) {
+        const request = ++historyRequest.current
+        if (selectedHistory === assetId) {
+            setSelectedHistory(null)
+            return
+        }
+        setSelectedHistory(assetId)
+        setIdentifiers([])
+        setHistoryError('')
+        setHistoryLoading(true)
+        try {
+            const result = await findAssetIdentifiers(assetId)
+            if (historyRequest.current === request) setIdentifiers(result)
+        } catch {
+            if (historyRequest.current === request) setHistoryError('Não foi possível consultar o histórico de identificadores.')
+        } finally {
+            if (historyRequest.current === request) setHistoryLoading(false)
+        }
+    }
 
     const [loading, setLoading] =
         useState(true)
@@ -98,6 +125,7 @@ function AssetsPage() {
                                     <th>Tipo</th>
                                     <th>Setor</th>
                                     <th>Bolsa</th>
+                                    <th>Identidade histórica</th>
                                 </tr>
                                 </thead>
 
@@ -124,6 +152,25 @@ function AssetsPage() {
 
                                         <td>
                                             {asset.exchange}
+                                        </td>
+                                        <td>
+                                            <button type="button" onClick={() => void toggleHistory(asset.id)}
+                                                aria-expanded={selectedHistory === asset.id}>
+                                                {selectedHistory === asset.id ? 'Ocultar histórico' : 'Ver histórico'}
+                                            </button>
+                                            {selectedHistory === asset.id && (
+                                                <div role="status">
+                                                    {historyLoading ? 'Consultando histórico...' : historyError || (
+                                                        identifiers.length === 0 ? 'Sem identificadores históricos confirmados.' :
+                                                            identifiers.map((identifier, index) => (
+                                                                <p key={`${identifier.kind}-${identifier.value}-${index}`}>
+                                                                    {identifier.kind === 'ISIN' ? 'ISIN' : 'Ticker'}: {identifier.value}
+                                                                    {identifier.effectiveDate ? ` (a partir de ${identifier.effectiveDate})` : ''}
+                                                                </p>
+                                                            ))
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

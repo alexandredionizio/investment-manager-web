@@ -12,7 +12,7 @@ type Props = {
 
 export default function B3Reconciliation({ portfolios, portfolioId, onPortfolioChange, onReconcile, result, loading, error }: Props) {
   return <section aria-labelledby="b3-reconciliation-title" style={{ marginTop: 30 }}>
-    <h3 id="b3-reconciliation-title">IM-041 — Conciliação financeira (simulação)</h3>
+    <h3 id="b3-reconciliation-title">Conciliação financeira (simulação)</h3>
     <p>Confira possíveis duplicidades e saldos cronológicos antes da importação. <strong>Esta etapa não grava negociações nem altera posições.</strong></p>
     <label htmlFor="b3-reconciliation-portfolio">Carteira de destino: </label>
     <select id="b3-reconciliation-portfolio" value={portfolioId ?? ''} disabled={loading} onChange={e => onPortfolioChange(e.target.value ? Number(e.target.value) : null)}>

@@ -6,3 +6,16 @@ export async function findAllAssets(): Promise<AssetResponse[]> {
 
     return response.data
 }
+export type HistoricalIdentifier = {
+    kind: 'TICKER' | 'ISIN'
+    value: string
+    exchange: string
+    source: string
+    observedName: string
+    effectiveDate: string | null
+}
+
+export async function findAssetIdentifiers(assetId: number): Promise<HistoricalIdentifier[]> {
+    const response = await api.get<HistoricalIdentifier[]>(`/assets/${assetId}/identifiers`)
+    return response.data
+}

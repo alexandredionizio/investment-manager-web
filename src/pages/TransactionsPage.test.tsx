@@ -6,13 +6,13 @@ import AssetsPage from './AssetsPage'
 import { downloadCsv } from '../utils/csvExport'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findAllBrokers } from '../services/brokerService'
-import { findAllAssets } from '../services/assetService'
+import { findAllAssets, findAssetIdentifiers } from '../services/assetService'
 import { createTransaction, deleteManualTransaction, findTransactionsByPortfolio, findB3LinkedTransactions, findB3Reversals, reverseB3Transaction } from '../services/transactionService'
 import { createPurchase, searchInstruments, findSaleOptions } from '../services/instrumentService'
 vi.mock('../utils/csvExport', () => ({ downloadCsv: vi.fn() }))
 vi.mock('../services/portfolioService', () => ({ findAllPortfolios: vi.fn() }))
 vi.mock('../services/brokerService', () => ({ findAllBrokers: vi.fn() }))
-vi.mock('../services/assetService', () => ({ findAllAssets: vi.fn() }))
+vi.mock('../services/assetService', () => ({ findAllAssets: vi.fn(), findAssetIdentifiers: vi.fn() }))
 vi.mock('../services/transactionService', () => ({ createTransaction: vi.fn(), deleteManualTransaction: vi.fn(), findTransactionsByPortfolio: vi.fn(), findB3LinkedTransactions: vi.fn(), findB3Reversals: vi.fn(), reverseB3Transaction: vi.fn() }))
 vi.mock('../services/instrumentService', () => ({ createPurchase: vi.fn(), searchInstruments: vi.fn(), findSaleOptions: vi.fn() }))
 afterEach(cleanup)
@@ -68,6 +68,22 @@ it('keeps Assets exclusively as consultation', async () => {
     const { container } = render(<MemoryRouter><AssetsPage /></MemoryRouter>)
     await screen.findByText('OLDT3'); expect(container.querySelector('form')).toBeNull()
     expect(screen.getByText(/A presença nesta lista não garante/)).toBeTruthy()
+})
+
+it('IM-050: consulta aliases e ISIN confirmados sem permitir editar ativos históricos', async () => {
+    vi.mocked(findAllAssets).mockResolvedValue([{ id: 1, ticker: 'BHIA3', name: 'Casas Bahia', type: 'STOCK', sector: '', exchange: 'B3' }])
+    vi.mocked(findAssetIdentifiers).mockResolvedValue([
+        { kind: 'TICKER', value: 'VIIA3', exchange: 'B3', source: 'BRAPI', observedName: 'Casas Bahia', effectiveDate: '2023-10-01' },
+        { kind: 'ISIN', value: 'BRBHIAACNOR8', exchange: 'B3', source: 'BRAPI', observedName: 'Casas Bahia', effectiveDate: null },
+    ])
+    const { container } = render(<MemoryRouter><AssetsPage /></MemoryRouter>)
+    await screen.findByText('BHIA3')
+    expect(findAssetIdentifiers).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Ver histórico' }))
+    await screen.findByText(/Ticker: VIIA3/)
+    expect(screen.getByText(/ISIN: BRBHIAACNOR8/)).toBeTruthy()
+    expect(findAssetIdentifiers).toHaveBeenCalledWith(1)
+    expect(container.querySelector('form')).toBeNull()
 })
 
 it('removes a manual transaction after confirmation and refreshes the list', async () => {
