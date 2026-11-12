@@ -1,0 +1,16 @@
+:root {
+    --im-navy: #102c51;
+    --im-navy-deep: #0c2445;
+    --im-primary: #164b84;
+    --im-primary-hover: #113a66;
+    --im-green: #078449;
+    --im-red: #bf3c45;
+    --im-bg: #f3f6fb;
+    --im-surface: #ffffff;
+    --im-border: #dce5f0;
+    --im-muted: #5d7088;
+    --im-radius: 15px;
+    --im-shadow: 0 8px 26px rgba(15, 38, 72, .055);
+    --im-gap: 20px;
+    --im-panel-gap: 30px;
+}

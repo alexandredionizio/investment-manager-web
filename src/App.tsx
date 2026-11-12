@@ -10,6 +10,8 @@ const AssetsPage = lazy(() => import('./pages/AssetsPage'))
 const B3ImportPage = lazy(() => import('./pages/B3ImportPage'))
 import ProtectedRoute from './components/ProtectedRoute'
 import './App.css'
+import './styles/tokens.css'
+import './styles/design-system.css'
 
 function App() {
     return (

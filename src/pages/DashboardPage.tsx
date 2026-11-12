@@ -1,3 +1,4 @@
+import { PageHeading } from '../components/ui/PageHeading'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createPortfolio, renamePortfolio, deletePortfolio } from '../services/portfolioService'
@@ -748,15 +749,7 @@ function DashboardPage() {
 
                 <main className="dashboard-container">
 
-                    <div className="page-heading">
-
-                        <h1>Dashboard</h1>
-
-                        <p>
-                            Carregando seus investimentos...
-                        </p>
-
-                    </div>
+                    <PageHeading title="Dashboard" description="Carregando seus investimentos..." />
 
                 </main>
             </>

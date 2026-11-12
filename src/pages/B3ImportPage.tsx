@@ -158,7 +158,7 @@ export default function B3ImportPage() {
     return (
         <>
             <Header />
-            <main style={{ maxWidth: 1440, margin: '0 auto', padding: '2rem 1rem' }}>
+            <main className="im-b3-page">
                 <h1 style={{ marginBottom: '0.4rem' }}>Importar B3</h1>
                 <p style={{ marginTop: 0, color: '#526785' }}>Selecione o tipo de informação que deseja importar.</p>
                 <div className="b3-import-tabs" role="tablist" aria-label="Tipo de importação B3">

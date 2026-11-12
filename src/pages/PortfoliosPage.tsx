@@ -1,3 +1,5 @@
+import { PageHeading } from '../components/ui/PageHeading'
+import { SurfaceCard } from '../components/ui/SurfaceCard'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
@@ -96,16 +98,9 @@ function PortfoliosPage() {
             <Header />
 
             <main className="dashboard-container">
-                <div className="page-heading">
-                    <h1>Carteiras</h1>
+                <PageHeading title="Carteiras" description="Acompanhe o desempenho das suas carteiras de investimentos." />
 
-                    <p>
-                        Acompanhe o desempenho das suas
-                        carteiras de investimentos.
-                    </p>
-                </div>
-
-                <section className="dashboard-card">
+                <SurfaceCard>
                     <h2>Minhas carteiras</h2>
                     <p>Crie ou renomeie carteiras pelo seletor do Dashboard.</p>
 
@@ -233,7 +228,7 @@ function PortfoliosPage() {
                             ))}
                         </div>
                     )}
-                </section>
+                </SurfaceCard>
             </main>
         </>
     )

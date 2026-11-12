@@ -1,0 +1,116 @@
+/* Shared fintech design system. No simulated metrics, prices or holdings. */
+body:has(.app-header) { background: var(--im-bg); color: var(--im-navy-deep); }
+body:has(.app-header) main { box-sizing: border-box; width: calc(100% - 230px); max-width: none; margin: 0 0 0 230px; padding: 32px clamp(18px, 3vw, 48px) 64px; min-width: 0; transition: margin-left .2s ease, width .2s ease; }
+body:has(.app-header.is-collapsed) main { margin-left: 76px; width: calc(100% - 76px); }
+body:has(.app-header) main.im-b3-page { margin-left: 230px; width: calc(100% - 230px); max-width: none; padding: 32px clamp(18px, 3vw, 48px) 64px; }
+body:has(.app-header.is-collapsed) main.im-b3-page { margin-left: 76px; width: calc(100% - 76px); }
+body:has(.app-header) main.im-b3-page > * { min-width: 0; }
+body:has(.app-header) .dashboard-container { max-width: none; }
+body:has(.app-header) .app-header { position: fixed; z-index: 100; inset: 0 auto 0 0; width: 230px; background: linear-gradient(170deg,#102b4e,#152f56); border: 0; box-shadow: 3px 0 20px rgba(19,46,80,.1); }
+body:has(.app-header) .app-header { transition: width .2s ease; }
+body:has(.app-header.is-collapsed) .app-header { width: 76px; }
+body:has(.app-header) .sidebar-collapse-toggle { align-self: flex-end; width: 30px; height: 30px; min-height: 30px; display: grid; place-items: center; background: #24466e; color: white; padding: 0; margin-bottom: -23px; border: 1px solid #45658a; font-size: 19px; line-height: 1; }
+body:has(.app-header) .sidebar-nav-icon { display: inline-flex; width: 22px; min-width: 22px; justify-content: center; align-items: center; font-size: 20px; }
+body:has(.app-header) .sidebar-nav-text { display: inline; }
+body:has(.app-header) .nav-link { display: flex; align-items: center; gap: 12px; }
+body:has(.app-header) .logout-button { display: flex; align-items: center; justify-content: center; gap: 10px; }
+body:has(.app-header.is-collapsed) .brand { justify-content: center; padding: 0; }
+body:has(.app-header.is-collapsed) .brand > span:last-child { display: none; }
+body:has(.app-header.is-collapsed) .header-content { padding-inline: 10px; }
+body:has(.app-header.is-collapsed) .sidebar-nav-text { display: none; }
+body:has(.app-header.is-collapsed) .nav-link { justify-content: center; padding-inline: 7px; }
+body:has(.app-header.is-collapsed) .logout-button { padding-inline: 5px; }
+body:has(.app-header.is-collapsed) .sidebar-collapse-toggle { align-self: center; }
+body:has(.app-header) .header-content { height: 100%; max-width: none; padding: 25px 13px; display: flex; flex-direction: column; align-items: stretch; gap: 38px; }
+body:has(.app-header) .brand { color: white; padding-inline: 9px; font-size: 16px; white-space: normal; }
+body:has(.app-header) .brand-icon { flex-shrink: 0; background: #08a86b; border-radius: 10px; }
+body:has(.app-header) .header-navigation { flex: 1; min-height: 0; flex-direction: column; align-items: stretch; gap: 14px; }
+body:has(.app-header) .main-nav { flex-direction: column; gap: 4px; align-items: stretch; flex: 0; }
+body:has(.app-header) .nav-link { padding: 12px 14px; color: #d5e4f4; border-radius: 9px; font-weight: 500; }
+body:has(.app-header) .nav-link:hover { background: #25456b; color: white; }
+body:has(.app-header) .nav-link.active { color: white; background: #34587f; }
+body:has(.app-header) .nav-link.active::after { display: none; }
+body:has(.app-header) .logout-button { margin-top: auto; color: white; border-color: #446181; background: transparent; }
+body:has(.app-header) .logout-button:hover { background: #294c76; }
+body:has(.app-header) button { border-radius: 9px; }
+body:has(.app-header) input, body:has(.app-header) select, body:has(.app-header) textarea { border-color: var(--im-border); border-radius: 9px; min-height: 42px; }
+body:has(.app-header) button:focus-visible, body:has(.app-header) a:focus-visible, body:has(.app-header) input:focus-visible, body:has(.app-header) select:focus-visible { outline: 3px solid #70b9f2; outline-offset: 2px; }
+.im-page-heading { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 24px; }
+.im-page-heading h1 { font-size: clamp(1.6rem,2vw,2.15rem); line-height: 1.15; margin: 0 0 7px; }
+.im-page-heading p { color: var(--im-muted); margin: 0; }
+.im-page-actions { display: flex; align-items: center; gap: 12px; }
+body:has(.app-header) section, .im-surface { border: 1px solid var(--im-border); background: var(--im-surface); border-radius: var(--im-radius); box-shadow: var(--im-shadow); }
+body:has(.app-header) section h2 { color: var(--im-navy); }
+/* Shared spacing contract: one token controls distances BETWEEN top-level panels
+   and cards on every Investment Manager page. Internal form spacing stays compact. */
+body:has(.app-header) main > section,
+body:has(.app-header) main > .dashboard-card,
+body:has(.app-header) main.im-b3-page > section { margin-top: var(--im-panel-gap); }
+body:has(.app-header) main .dashboard-metrics,
+body:has(.app-header) main .portfolio-summary-list,
+body:has(.app-header) main .positions-grid { gap: var(--im-panel-gap); }
+body:has(.app-header) main .dashboard-metrics { margin-bottom: var(--im-panel-gap); }
+body:has(.app-header) main .im-transaction-layout {
+    gap: var(--im-panel-gap);
+    margin-top: var(--im-panel-gap);
+}
+/* For future page layouts, apply im-panel-grid / im-panel-stack without new CSS rules. */
+.im-panel-grid { display: grid; gap: var(--im-panel-gap); }
+.im-panel-stack { display: flex; flex-direction: column; gap: var(--im-panel-gap); }
+.im-panel-stack > *, .im-panel-grid > * { min-width: 0; }
+.im-surface-heading { margin-bottom: 18px; }
+.im-surface-heading h2 { margin-bottom: 6px; }
+.im-surface-heading p { color: var(--im-muted); margin: 0; }
+.im-notice { border-radius: 9px; padding: 12px 15px; border: 1px solid var(--im-border); background: #f6f9ff; }
+.im-notice--error { color: #a72932; border-color: #f2c6cb; background: #fff4f5; }
+.im-notice--empty { color: var(--im-muted); }
+.im-notice--loading { color: var(--im-primary); }
+.im-metric-tile { display: flex; flex-direction: column; gap: 8px; min-height: 130px; background: white; border: 1px solid var(--im-border); border-radius: var(--im-radius); padding: 22px; box-shadow: var(--im-shadow); }
+.im-metric-label { font-weight: 600; color: var(--im-muted); }
+.im-metric-value { font-weight: 750; font-size: 1.6rem; color: var(--im-navy); }
+.im-metric-value--positive { color: var(--im-green); }
+.im-metric-value--negative { color: var(--im-red); }
+.im-metric-tile small { color: var(--im-muted); }
+body:has(.app-header) .dashboard-metric-card, body:has(.app-header) .portfolio-summary-card { border-radius: var(--im-radius); border-color: var(--im-border); box-shadow: var(--im-shadow); }
+body:has(.app-header) .transactions-table { border-collapse: separate; border-spacing: 0; }
+body:has(.app-header) .transactions-table th { background: #edf3fa; color: var(--im-navy); }
+body:has(.app-header) .transactions-table td { border-color: #e7edf5; }
+body:has(.app-header) .transactions-table tbody tr:hover { background: #f6faff; }
+.im-transaction-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(255px,1fr); gap: var(--im-panel-gap, 30px); margin-top: var(--im-panel-gap, 30px); align-items: start; }
+.im-transaction-layout > section { margin-top: 0; }
+.im-transaction-form { max-width: none; }
+.im-transaction-form fieldset { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: 18px; row-gap: 14px; border: 0; padding: 0; margin: 0 0 20px; min-width: 0; }
+.im-transaction-form fieldset > div { min-width: 0; }
+.im-transaction-form fieldset > div:has(#instrument-query), .im-transaction-form fieldset > div:has(#instrument-select) { grid-column: span 2; }
+.im-transaction-form button[type=submit] { font-weight: 700; min-width: 215px; }
+.im-transaction-form label { color: var(--im-navy); }
+.im-operation-summary { position: sticky; top: 20px; }
+.im-operation-summary dl { margin: 0; }
+.im-operation-summary dl > div { display: flex; justify-content: space-between; gap: 10px; padding: 11px 0; border-bottom: 1px solid #edf1f7; }
+.im-operation-summary dt { color: var(--im-muted); }
+.im-operation-summary dd { margin: 0; font-weight: 650; text-align: right; overflow-wrap: anywhere; }
+.im-operation-summary .im-estimate { background: #e7f6ed; color: #08723e; padding: 12px; border-radius: 10px; }
+.im-operation-summary .im-estimate dt, .im-operation-summary .im-estimate dd { color: inherit; }
+.im-operation-summary > p { color: var(--im-muted); font-size: .84rem; }
+@media (max-width: 1050px) { .im-transaction-layout { grid-template-columns: 1fr; } .im-operation-summary { position: static; } }
+@media (max-width: 850px) {
+    body:has(.app-header) .app-header, body:has(.app-header.is-collapsed) .app-header { position: sticky; inset: auto; width: 100%; background: #102b4e; }
+    body:has(.app-header) .sidebar-collapse-toggle { display: none; }
+    body:has(.app-header.is-collapsed) .sidebar-nav-text { display: inline; }
+    body:has(.app-header.is-collapsed) .brand > span:last-child { display: inline; }
+    body:has(.app-header) .header-content, body:has(.app-header.is-collapsed) .header-content { flex-direction: row; align-items: center; justify-content: space-between; height: 64px; padding: 0 18px; }
+    body:has(.app-header) .header-navigation { display: none; position: absolute; top: 64px; left: 0; right: 0; background: #102b4e; padding: 12px 18px; box-shadow: 0 8px 20px rgba(16,42,76,.15); }
+    body:has(.app-header) .header-navigation.open { display: flex; }
+    body:has(.app-header) .main-nav { display: flex; }
+    body:has(.app-header) .mobile-menu-button { display: block; background: transparent; border-color: #66809e; }
+    body:has(.app-header) .mobile-menu-button span { background: white; }
+    body:has(.app-header) .brand > span:last-child { display: inline; }
+    body:has(.app-header) main, body:has(.app-header.is-collapsed) main, body:has(.app-header) main.im-b3-page, body:has(.app-header.is-collapsed) main.im-b3-page { margin: 0 auto; padding: 24px 18px 50px; width: 100%; }
+}
+@media (max-width: 640px) {
+    .im-page-heading { display: block; }
+    .im-page-actions { margin-top: 14px; }
+    .im-transaction-form fieldset { grid-template-columns: 1fr; }
+    .im-transaction-form fieldset > div:has(#instrument-query), .im-transaction-form fieldset > div:has(#instrument-select) { grid-column: auto; }
+}
+@media (prefers-reduced-motion: reduce) { body:has(.app-header) button { transition: none; } }

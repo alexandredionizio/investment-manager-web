@@ -1,3 +1,5 @@
+import { PageHeading } from '../components/ui/PageHeading'
+import { SurfaceCard } from '../components/ui/SurfaceCard'
 import { useEffect, useRef, useState } from 'react'
 import Header from '../components/Header'
 import { findAllAssets, findAssetIdentifiers } from '../services/assetService'
@@ -92,16 +94,9 @@ function AssetsPage() {
             <Header />
 
             <main className="dashboard-container">
-                <div className="page-heading">
-                    <h1>Ativos</h1>
+                <PageHeading title="Ativos" description="Consulte os ativos disponíveis para seus investimentos." />
 
-                    <p>
-                        Consulte os ativos disponíveis para
-                        seus investimentos.
-                    </p>
-                </div>
-
-                <section className="dashboard-card">
+                <SurfaceCard>
                     <h2>Ativos reconhecidos</h2>
                     <p>
                         Esta página consulta os ativos reconhecidos, inclusive os mantidos para preservar o histórico.
@@ -178,7 +173,7 @@ function AssetsPage() {
                             </table>
                         </div>
                     )}
-                </section>
+                </SurfaceCard>
             </main>
         </>
     )

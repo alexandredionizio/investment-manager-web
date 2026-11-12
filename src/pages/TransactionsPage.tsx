@@ -1,3 +1,5 @@
+import { PageHeading } from '../components/ui/PageHeading'
+import { SurfaceCard } from '../components/ui/SurfaceCard'
 import { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 
@@ -51,7 +53,11 @@ function TransactionsPage() {
         useState<TransactionType>('BUY')
     const [quantity, setQuantity] = useState('')
     const [unitPrice, setUnitPrice] = useState('')
-    const [transactionDate, setTransactionDate] = useState('')
+    // Data local do usuário (não UTC): evita consultar opções de venda sem a data.
+    const [transactionDate, setTransactionDate] = useState(() => {
+        const today = new Date()
+        return [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-')
+    })
 
     const [transactionMessage, setTransactionMessage] = useState('')
     const [transactionLoading, setTransactionLoading] = useState(false)
@@ -257,11 +263,7 @@ function TransactionsPage() {
             <Header />
 
             <main>
-                <h1>Transações</h1>
-
-                <p>
-                    Consulte e registre suas movimentações.
-                </p>
+                <PageHeading title="Transações" description="Consulte e registre suas movimentações." />
 
                 <section>
                     <h2>Carteira</h2>
@@ -430,13 +432,48 @@ function TransactionsPage() {
                     </section>
                 )}
 
-                <section>
-                    <h2>Nova transação</h2>
-
-                    <form onSubmit={handleCreateTransaction}>
+                <div className="im-transaction-layout">
+                <SurfaceCard title="Nova transação" description="Preencha os dados da compra ou venda.">
+                    <form className="im-transaction-form" onSubmit={handleCreateTransaction}>
                         <fieldset disabled={transactionLoading}>
+                        <div>
+                            <label htmlFor="transactionType">
+                                Tipo
+                            </label>
+
+                            <select
+                                id="transactionType"
+                                value={transactionType}
+                                onChange={(event) => { setInstrument(null); setTransactionType(event.target.value as TransactionType) }}
+                            >
+                                <option value="BUY">
+                                    Compra
+                                </option>
+
+                                <option value="SELL">
+                                    Venda
+                                </option>
+                            </select>
+                        </div>
+
+
+                        <div>
+                            <label htmlFor="transactionDate">
+                                Data
+                            </label>
+
+                            <input
+                                id="transactionDate"
+                                type="date"
+                                value={transactionDate}
+                                onChange={(event) => { setInstrument(null); setTransactionDate(event.target.value) }}
+                                required
+                            />
+                        </div>
+
                         <InstrumentPicker key={[transactionPortfolioId, transactionDate, transactionType, optionsVersion].join(':')}
                             type={transactionType} portfolioId={transactionPortfolioId} date={transactionDate} onChange={setInstrument} />
+
 
                         <div>
                             <label htmlFor="broker">
@@ -465,26 +502,6 @@ function TransactionsPage() {
                                         {broker.name}
                                     </option>
                                 ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label htmlFor="transactionType">
-                                Tipo
-                            </label>
-
-                            <select
-                                id="transactionType"
-                                value={transactionType}
-                                onChange={(event) => { setInstrument(null); setTransactionType(event.target.value as TransactionType) }}
-                            >
-                                <option value="BUY">
-                                    Compra
-                                </option>
-
-                                <option value="SELL">
-                                    Venda
-                                </option>
                             </select>
                         </div>
 
@@ -528,19 +545,7 @@ function TransactionsPage() {
                             />
                         </div>
 
-                        <div>
-                            <label htmlFor="transactionDate">
-                                Data
-                            </label>
 
-                            <input
-                                id="transactionDate"
-                                type="date"
-                                value={transactionDate}
-                                onChange={(event) => { setInstrument(null); setTransactionDate(event.target.value) }}
-                                required
-                            />
-                        </div>
 
                         </fieldset>
                         <button
@@ -556,7 +561,21 @@ function TransactionsPage() {
                         </button>
 
                     </form>
-                </section>
+                </SurfaceCard>
+                <SurfaceCard title="Resumo da operação" className="im-operation-summary">
+                    <dl>
+                        <div><dt>Carteira</dt><dd>{portfolios.find(p => String(p.id) === transactionPortfolioId)?.name ?? 'Não selecionada'}</dd></div>
+                        <div><dt>Tipo</dt><dd>{transactionType === 'BUY' ? 'Compra' : 'Venda'}</dd></div>
+                        <div><dt>Data</dt><dd>{transactionDate ? formatDate(transactionDate) : 'Não informada'}</dd></div>
+                        <div><dt>Ativo</dt><dd>{instrument && 'ticker' in instrument ? instrument.ticker : instrument && 'assetId' in instrument ? 'Ativo selecionado' : 'Não selecionado'}</dd></div>
+                        <div><dt>Corretora</dt><dd>{brokers.find(b => String(b.id) === brokerId)?.name ?? 'Não selecionada'}</dd></div>
+                        <div><dt>Quantidade</dt><dd>{quantity && Number(quantity) > 0 ? formatNumber(Number(quantity)) : '—'}</dd></div>
+                        <div><dt>Preço unitário</dt><dd>{unitPrice && Number(unitPrice) > 0 ? formatCurrency(Number(unitPrice)) : '—'}</dd></div>
+                        <div className="im-estimate"><dt>Total estimado</dt><dd>{Number(quantity) > 0 && Number(unitPrice) > 0 && Number.isFinite(Number(quantity) * Number(unitPrice)) ? formatCurrency(Number(quantity) * Number(unitPrice)) : '—'}</dd></div>
+                    </dl>
+                    <p>Estimativa simples: quantidade × preço unitário. Não inclui taxas, custos adicionais ou validação do servidor.</p>
+                </SurfaceCard>
+                </div>
             </main>
         </>
     )

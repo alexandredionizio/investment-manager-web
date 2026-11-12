@@ -35,6 +35,26 @@ async function setup() {
     fireEvent.change(screen.getByLabelText('Quantidade'), { target: { value: '10' } })
     fireEvent.change(screen.getByLabelText('Preço unitário'), { target: { value: '25' } })
 }
+
+it('IM-048: ordena tipo e data antes do ativo/preço e inicia com a data local editável', async () => {
+    const { container } = render(<MemoryRouter><TransactionsPage /></MemoryRouter>)
+    await screen.findByText('Principal')
+    const localNow = new Date()
+    const expectedDate = [localNow.getFullYear(), String(localNow.getMonth() + 1).padStart(2, '0'), String(localNow.getDate()).padStart(2, '0')].join('-')
+    const data = screen.getByLabelText('Data') as HTMLInputElement
+    expect(data.value).toBe(expectedDate)
+    const form = container.querySelector('form')
+    expect(form).not.toBeNull()
+    const position = (id: string) => Array.from(form!.querySelectorAll('input, select')).findIndex(node => node.id === id)
+    expect(position('transactionType')).toBeLessThan(position('transactionDate'))
+    expect(position('transactionDate')).toBeLessThan(position('instrument-market'))
+    expect(position('instrument-query')).toBeLessThan(position('broker'))
+    expect(position('broker')).toBeLessThan(position('quantity'))
+    expect(position('quantity')).toBeLessThan(position('unitPrice'))
+    fireEvent.change(data, { target: { value: '2026-09-01' } })
+    expect(data.value).toBe('2026-09-01')
+})
+
 it('confirms a catalog purchase without an asset ID and clears the selected instrument after success', async () => {
     await setup()
     fireEvent.change(screen.getByLabelText('Buscar ativo por ticker ou nome'), { target: { value: 'PETR' } })
