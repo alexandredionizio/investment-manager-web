@@ -3,11 +3,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import TransactionsPage from './TransactionsPage'
 import AssetsPage from './AssetsPage'
+import { downloadCsv } from '../utils/csvExport'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findAllBrokers } from '../services/brokerService'
 import { findAllAssets } from '../services/assetService'
 import { createTransaction, deleteManualTransaction, findTransactionsByPortfolio, findB3LinkedTransactions, findB3Reversals, reverseB3Transaction } from '../services/transactionService'
 import { createPurchase, searchInstruments, findSaleOptions } from '../services/instrumentService'
+vi.mock('../utils/csvExport', () => ({ downloadCsv: vi.fn() }))
 vi.mock('../services/portfolioService', () => ({ findAllPortfolios: vi.fn() }))
 vi.mock('../services/brokerService', () => ({ findAllBrokers: vi.fn() }))
 vi.mock('../services/assetService', () => ({ findAllAssets: vi.fn() }))
@@ -117,4 +119,81 @@ it('estorna B3 com motivo e mantém auditoria na tela após confirmação refor�
         window.confirm = oldConfirm
         window.prompt = oldPrompt
     }
+})
+
+it('IM-035: exporta apenas as transações da carteira consultada, sem IDs internos', async () => {
+    vi.mocked(findTransactionsByPortfolio).mockResolvedValue([{
+        id: 99, portfolioId: 1, assetId: 5, assetTicker: 'PETR4',
+        brokerId: 1, brokerName: 'Corretora teste', type: 'BUY',
+        quantity: 10, unitPrice: 25, transactionDate: '2026-09-01',
+    }])
+    await setup()
+    const exportButton = await screen.findByRole('button', { name: 'Exportar transações (CSV)' })
+    await waitFor(() => expect((exportButton as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(exportButton)
+    expect(downloadCsv).toHaveBeenCalledTimes(1)
+    expect(downloadCsv).toHaveBeenCalledWith(
+        expect.stringMatching(/^transacoes-1-\d{4}-\d{2}-\d{2}\.csv$/),
+        ['Data', 'Ativo', 'Tipo', 'Corretora', 'Quantidade', 'Preço unitário', 'Valor bruto'],
+        [['2026-09-01', 'PETR4', 'Compra', 'Corretora teste', '10', '25', '250,00']],
+    )
+})
+
+it('IM-035: impede exportação de histórico vazio', async () => {
+    await setup()
+    const exportButton = await screen.findByRole('button', { name: 'Exportar transações (CSV)' })
+    expect((exportButton as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(exportButton)
+    expect(downloadCsv).not.toHaveBeenCalled()
+})
+
+
+it('IM-035: cancelamento de exclusão manual não modifica os lançamentos', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    vi.mocked(findTransactionsByPortfolio).mockResolvedValue([{
+        id: 191, portfolioId: 1, assetId: 5, assetTicker: 'PETR4', brokerId: 1,
+        brokerName: 'Corretora teste', type: 'BUY', quantity: 10,
+        unitPrice: 25, transactionDate: '2026-09-01',
+    }])
+    await setup()
+    fireEvent.click(await screen.findByRole('button', { name: 'Excluir transação 191 de PETR4' }))
+    expect(confirm).toHaveBeenCalled()
+    expect(deleteManualTransaction).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Excluir transação 191 de PETR4' })).toBeTruthy()
+    confirm.mockRestore()
+})
+
+it('IM-035: falha ao excluir preserva o registro e mostra indisponibilidade', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(findTransactionsByPortfolio).mockResolvedValue([{
+        id: 192, portfolioId: 1, assetId: 5, assetTicker: 'PETR4', brokerId: 1,
+        brokerName: 'Corretora teste', type: 'BUY', quantity: 10,
+        unitPrice: 25, transactionDate: '2026-09-01',
+    }])
+    vi.mocked(deleteManualTransaction).mockRejectedValue(new Error('Falha de conexão'))
+    await setup()
+    fireEvent.click(await screen.findByRole('button', { name: 'Excluir transação 192 de PETR4' }))
+    expect(await screen.findByText('Não foi possível excluir a transação.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Excluir transação 192 de PETR4' })).toBeTruthy()
+    expect(findTransactionsByPortfolio).toHaveBeenCalledTimes(1)
+    vi.mocked(window.confirm).mockRestore()
+})
+
+it('IM-035: estorno da B3 exige motivo suficiente antes de chamar o backend', async () => {
+    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('curto')
+    const confirm = vi.spyOn(window, 'confirm')
+    vi.mocked(findTransactionsByPortfolio).mockResolvedValue([{
+        id: 193, portfolioId: 1, assetId: 5, assetTicker: 'PETR4', brokerId: 1,
+        brokerName: 'Corretora teste', type: 'BUY', quantity: 10,
+        unitPrice: 25, transactionDate: '2026-09-01',
+    }])
+    vi.mocked(findB3LinkedTransactions).mockResolvedValue([193])
+    await setup()
+    fireEvent.click(await screen.findByRole('button', { name: 'Estornar B3 transação 193 de PETR4' }))
+    expect(prompt).toHaveBeenCalled()
+    expect(await screen.findByText('Informe um motivo de 10 a 500 caracteres para estornar.')).toBeTruthy()
+    expect(confirm).not.toHaveBeenCalled()
+    expect(reverseB3Transaction).not.toHaveBeenCalled()
+    prompt.mockRestore()
+    confirm.mockRestore()
 })

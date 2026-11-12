@@ -4,7 +4,9 @@ import { MemoryRouter } from 'react-router-dom'
 import type { AxiosResponse } from 'axios'
 import api from '../services/api'
 import IncomesPage from './IncomesPage'
+import { downloadCsv } from '../utils/csvExport'
 import { findExpectedIncomesByPortfolio } from '../services/expectedIncomeQueryService'
+vi.mock('../utils/csvExport', () => ({ downloadCsv: vi.fn() }))
 vi.mock('../services/expectedIncomeQueryService', () => ({ findExpectedIncomesByPortfolio: vi.fn() }))
 
 const income = { id: 1, portfolioId: 1, assetId: 1, assetTicker: 'ITUB4', type: 'DIVIDEND',
@@ -102,4 +104,28 @@ describe('Income payment presentation', () => {
         const table = await screen.findByRole('table')
         expect(within(table).getAllByRole('row')).toHaveLength(3)
     })
+})
+
+it('IM-035: exporta apenas proventos recebidos conforme filtro, sem identificadores internos', async () => {
+    rows = [
+        { ...income, id: 1, portfolioId: 1, paymentDate: '2026-10-30', received: true },
+        { ...income, id: 2, portfolioId: 2, paymentDate: '2026-10-31', received: true },
+        { ...income, id: 3, portfolioId: 1, paymentDate: '2026-11-16', received: false },
+    ]
+    vi.spyOn(api, 'get').mockImplementation(async (url: string) => ({
+        data: url === '/incomes' ? rows : url === '/portfolios'
+            ? [{ id: 1, name: 'Principal' }, { id: 2, name: 'Outra' }] : [],
+    }) as AxiosResponse)
+    open()
+    const exportButton = await screen.findByRole('button', { name: 'Exportar proventos (CSV)' })
+    await screen.findByRole('table')
+    fireEvent.change(screen.getByLabelText('Carteira do histórico'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Situação'), { target: { value: 'received' } })
+    fireEvent.click(exportButton)
+    expect(downloadCsv).toHaveBeenCalledTimes(1)
+    const [name, headers, exported] = vi.mocked(downloadCsv).mock.calls[0]
+    expect(name).toMatch(/^proventos-1-\d{4}-\d{2}-\d{2}\.csv$/)
+    expect(headers).toEqual(['Data-base', 'Pagamento', 'Situação', 'Ativo', 'Tipo', 'Quantidade', 'Valor por unidade', 'Valor total', 'Origem'])
+    expect(exported).toHaveLength(1)
+    expect(exported[0]).toEqual(['2026-09-10', '2026-10-30', 'Recebido', 'ITUB4', 'Dividendo', '100', '0,50000000', '50,00', 'Provento cadastrado'])
 })
