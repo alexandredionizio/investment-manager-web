@@ -36,5 +36,27 @@ describe('B3ImportCommit', () => {
     }} onCommit={vi.fn()} />)
     expect(screen.getByText(/Importação concluída/i)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /importar definitivamente/i })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Ver posições da carteira' }).getAttribute('href')).toBe('/portfolios/6')
+    expect(screen.getByRole('link', { name: 'Ver indicadores' }).getAttribute('href')).toBe('/dashboard')
+    expect(screen.getByRole('status').textContent).not.toMatch(/Lote #|Carteira #|banco de dados de testes/)
+  })
+  it('reimportação idempotente comunica ausência de novo lançamento e não expõe identificadores técnicos', () => {
+    const onCommit = vi.fn(async () => {})
+    render(<B3ImportCommit reconciliation={null} loading={false} error="" result={{
+      batchId: 91, portfolioId: 6, status: 'ALREADY_IMPORTED', importedRows: 0,
+      rows: [{ excelRow: 2, transactionId: 80 }, { excelRow: 3, transactionId: 81 }],
+    }} onCommit={onCommit} />)
+    expect(screen.getByText(/Este lote já havia sido importado/i)).toBeTruthy()
+    expect(screen.getByText(/Nenhuma operação adicional foi registrada/i)).toBeTruthy()
+    expect(screen.getByText(/2 operações vinculadas/i)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /importar definitivamente/i })).toBeNull()
+    expect(screen.getByRole('status').textContent).not.toMatch(/91|80|81|Carteira #|Lote #/)
+    expect(onCommit).not.toHaveBeenCalled()
+  })
+  it('resumo pré-confirmação não expõe IDs nem chama ambiente de produção de testes', () => {
+    render(<B3ImportCommit reconciliation={ready} loading={false} error="" result={null} onCommit={vi.fn()} />)
+    expect(screen.getByText(/2 operações/, { selector: 'strong' })).toBeTruthy()
+    expect(screen.getByText(/registra compras e vendas na carteira selecionada/i)).toBeTruthy()
+    expect(screen.queryByText(/banco de dados de testes|Carteira #6|IM-042/i)).toBeNull()
   })
 })

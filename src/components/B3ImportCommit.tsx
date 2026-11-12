@@ -19,19 +19,22 @@ export default function B3ImportCommit({ reconciliation, loading, error, result,
 
   return (
     <section aria-labelledby="b3-import-commit-title" style={{ marginTop: 30, border: '1px solid #7775', borderRadius: 10, padding: 20 }}>
-      <h3 id="b3-import-commit-title">IM-042 — Importação definitiva B3</h3>
+      <h3 id="b3-import-commit-title">Confirmar importação B3</h3>
       {result ? (
         <div role="status">
           <p><strong>{result.status === 'IMPORTED' ? 'Importação concluída.' : 'Este lote já havia sido importado.'}</strong></p>
-          <p>Lote #{result.batchId} — Carteira #{result.portfolioId} — {result.status === 'IMPORTED' ? result.importedRows : result.rows.length} transações vinculadas.</p>
-          <p>Confira as posições e o histórico da carteira. Não importe novamente o mesmo lote.</p>
+          <p>{result.status === 'IMPORTED' ? result.importedRows : result.rows.length} operações vinculadas à carteira.</p>
+          <p>{result.status === 'IMPORTED'
+            ? 'Confira as posições e o histórico. Os indicadores serão recalculados nas próximas consultas.'
+            : 'Nenhuma operação adicional foi registrada nesta tentativa.'}</p>
+          <p><a href={`/portfolios/${result.portfolioId}`}>Ver posições da carteira</a> · <a href="/dashboard">Ver indicadores</a></p>
         </div>
       ) : !safe ? (
         <p role="status">A importação está bloqueada: resolva todas as linhas em revisão ou bloqueadas e refaça a conciliação. Nenhuma operação será gravada.</p>
       ) : (
         <>
-          <p>Carteira #{reconciliation.portfolioId}: <strong>{reconciliation.totalRows} operações</strong> aptas na simulação. O backend revalidará todos os saldos antes de gravar em uma única transação.</p>
-          <p><strong>Atenção:</strong> este botão cria compras e vendas reais no banco de dados de testes. Não existe exclusão de transações pela interface.</p>
+          <p><strong>{reconciliation.totalRows} operações</strong> aptas na simulação. O servidor revalidará os saldos e a custódia antes de gravar o lote de forma atômica.</p>
+          <p><strong>Atenção:</strong> a confirmação registra compras e vendas na carteira selecionada. Confira os dados antes de continuar; correções posteriores exigem procedimento auditável.</p>
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: 'fit-content', maxWidth: '100%', margin: '16px 0 0', cursor: loading ? 'not-allowed' : 'pointer' }}>
             <input
               type="checkbox"
