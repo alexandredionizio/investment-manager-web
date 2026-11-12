@@ -208,14 +208,14 @@ function TransactionsPage() {
         const portfolioId = selectedPortfolioId
         if (portfolioId === null || deletingId !== null || transactionLoading) return
         const reason = window.prompt(
-            `Motivo do estorno auditável da operação B3 ${transaction.id} (${transaction.assetTicker}):\n\nO lançamento original permanecerá registrado no lote B3.`,
+            `Informe o motivo para estornar ${transaction.type === 'BUY' ? 'a compra' : 'a venda'} de ${formatNumber(transaction.quantity)} ${transaction.assetTicker} em ${formatDate(transaction.transactionDate)}:\n\nO lançamento original permanecerá no histórico de auditoria.`,
             '',
         )
         if (reason === null) return
         if (reason.trim().length < 10 || reason.trim().length > 500) {
             setTransactionMessage('Informe um motivo de 10 a 500 caracteres para estornar.'); return
         }
-        if (!window.confirm(`Confirmar estorno de ${transaction.assetTicker}? A posição será recalculada, e o lançamento original permanecerá na auditoria B3.`)) return
+        if (!window.confirm(`Estornar ${transaction.type === 'BUY' ? 'compra' : 'venda'} de ${formatNumber(transaction.quantity)} ${transaction.assetTicker} de ${formatDate(transaction.transactionDate)}? A posição será recalculada e o histórico de auditoria será preservado.`)) return
         setDeletingId(transaction.id)
         setTransactionMessage('')
         try {
@@ -303,7 +303,7 @@ function TransactionsPage() {
                         <button type="button"
                             disabled={transactions.length === 0 || Boolean(historyError)}
                             onClick={() => downloadCsv(
-                                `transacoes-${selectedPortfolioId}-${new Date().toISOString().slice(0, 10)}.csv`,
+                                `transacoes-${(portfolios.find(p => p.id === selectedPortfolioId)?.name ?? 'carteira').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'carteira'}-${new Date().toISOString().slice(0, 10)}.csv`,
                                 ['Data', 'Ativo', 'Tipo', 'Corretora', 'Quantidade', 'Preço unitário', 'Valor bruto'],
                                 transactions.map(t => [
                                     t.transactionDate, t.assetTicker, t.type === 'BUY' ? 'Compra' : 'Venda',
@@ -394,14 +394,14 @@ function TransactionsPage() {
                                                     {b3LinkedIds.includes(transaction.id) ? (
                                                         <button type="button"
                                                             disabled={deletingId !== null || transactionLoading}
-                                                            aria-label={`Estornar B3 transação ${transaction.id} de ${transaction.assetTicker}`}
+                                                            aria-label={`Estornar ${transaction.type === 'BUY' ? 'compra' : 'venda'} de ${formatNumber(transaction.quantity)} ${transaction.assetTicker} de ${formatDate(transaction.transactionDate)}`}
                                                             onClick={() => void handleReverseB3(transaction)}>
                                                             {deletingId === transaction.id ? 'Estornando...' : 'Estornar B3'}
                                                         </button>
                                                     ) : (
                                                         <button type="button"
                                                             disabled={deletingId !== null || transactionLoading}
-                                                            aria-label={`Excluir transação ${transaction.id} de ${transaction.assetTicker}`}
+                                                            aria-label={`Excluir ${transaction.type === 'BUY' ? 'compra' : 'venda'} de ${formatNumber(transaction.quantity)} ${transaction.assetTicker} de ${formatDate(transaction.transactionDate)}`}
                                                             onClick={() => void handleDeleteTransaction(transaction)}>
                                                             {deletingId === transaction.id ? 'Excluindo...' : 'Excluir'}
                                                         </button>
@@ -421,7 +421,7 @@ function TransactionsPage() {
                                 <ul>
                                     {b3Reversals.map(r => (
                                         <li key={r.transactionId}>
-                                            Transação #{r.transactionId} — lote #{r.batchId}, linha {r.excelRow} — {r.reason}
+                                            Operação da importação B3, linha {r.excelRow} — {r.reason}
                                         </li>
                                     ))}
                                 </ul>

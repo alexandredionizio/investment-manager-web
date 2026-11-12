@@ -80,7 +80,7 @@ it('removes a manual transaction after confirmation and refreshes the list', asy
             .mockResolvedValue([])
         vi.mocked(deleteManualTransaction).mockResolvedValue(undefined)
         await setup()
-        fireEvent.click(await screen.findByRole('button', { name: 'Excluir transação 91 de PETR4' }))
+        fireEvent.click(await screen.findByRole('button', { name: 'Excluir compra de 10 PETR4 de 01/09/2026' }))
         await waitFor(() => expect(deleteManualTransaction).toHaveBeenCalledWith(91))
         await screen.findByText('Transação excluída com sucesso.')
         await screen.findByText('Nenhuma transação encontrada.')
@@ -110,11 +110,13 @@ it('estorna B3 com motivo e mantém auditoria na tela após confirmação refor�
             reversedAt: '2026-11-10T12:00:00Z',
         })
         await setup()
-        expect(screen.queryByRole('button', { name: 'Excluir transação 101 de PETR4' })).toBeNull()
-        fireEvent.click(await screen.findByRole('button', { name: 'Estornar B3 transação 101 de PETR4' }))
+        expect(screen.queryByRole('button', { name: 'Excluir compra de 10 PETR4 de 01/09/2026' })).toBeNull()
+        fireEvent.click(await screen.findByRole('button', { name: 'Estornar compra de 10 PETR4 de 01/09/2026' }))
         await waitFor(() => expect(reverseB3Transaction).toHaveBeenCalledWith(101, 'Negociação lançada incorretamente na carteira'))
+        expect(vi.mocked(window.prompt)).toHaveBeenCalledWith(expect.stringContaining('compra de 10 PETR4 em 01/09/2026'), '')
+        expect(vi.mocked(window.confirm)).toHaveBeenCalledWith(expect.stringContaining('compra de 10 PETR4 de 01/09/2026'))
         await screen.findByText(/Operação B3 estornada com registro de auditoria/)
-        await screen.findByText(/lote #2, linha 3/)
+        await screen.findByText(/importação B3, linha 3/)
     } finally {
         window.confirm = oldConfirm
         window.prompt = oldPrompt
@@ -133,7 +135,7 @@ it('IM-035: exporta apenas as transações da carteira consultada, sem IDs inter
     fireEvent.click(exportButton)
     expect(downloadCsv).toHaveBeenCalledTimes(1)
     expect(downloadCsv).toHaveBeenCalledWith(
-        expect.stringMatching(/^transacoes-1-\d{4}-\d{2}-\d{2}\.csv$/),
+        expect.stringMatching(/^transacoes-principal-\d{4}-\d{2}-\d{2}\.csv$/),
         ['Data', 'Ativo', 'Tipo', 'Corretora', 'Quantidade', 'Preço unitário', 'Valor bruto'],
         [['2026-09-01', 'PETR4', 'Compra', 'Corretora teste', '10', '25', '250,00']],
     )
@@ -156,10 +158,10 @@ it('IM-035: cancelamento de exclusão manual não modifica os lançamentos', asy
         unitPrice: 25, transactionDate: '2026-09-01',
     }])
     await setup()
-    fireEvent.click(await screen.findByRole('button', { name: 'Excluir transação 191 de PETR4' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Excluir compra de 10 PETR4 de 01/09/2026' }))
     expect(confirm).toHaveBeenCalled()
     expect(deleteManualTransaction).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Excluir transação 191 de PETR4' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Excluir compra de 10 PETR4 de 01/09/2026' })).toBeTruthy()
     confirm.mockRestore()
 })
 
@@ -172,9 +174,9 @@ it('IM-035: falha ao excluir preserva o registro e mostra indisponibilidade', as
     }])
     vi.mocked(deleteManualTransaction).mockRejectedValue(new Error('Falha de conexão'))
     await setup()
-    fireEvent.click(await screen.findByRole('button', { name: 'Excluir transação 192 de PETR4' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Excluir compra de 10 PETR4 de 01/09/2026' }))
     expect(await screen.findByText('Não foi possível excluir a transação.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Excluir transação 192 de PETR4' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Excluir compra de 10 PETR4 de 01/09/2026' })).toBeTruthy()
     expect(findTransactionsByPortfolio).toHaveBeenCalledTimes(1)
     vi.mocked(window.confirm).mockRestore()
 })
@@ -189,7 +191,7 @@ it('IM-035: estorno da B3 exige motivo suficiente antes de chamar o backend', as
     }])
     vi.mocked(findB3LinkedTransactions).mockResolvedValue([193])
     await setup()
-    fireEvent.click(await screen.findByRole('button', { name: 'Estornar B3 transação 193 de PETR4' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Estornar compra de 10 PETR4 de 01/09/2026' }))
     expect(prompt).toHaveBeenCalled()
     expect(await screen.findByText('Informe um motivo de 10 a 500 caracteres para estornar.')).toBeTruthy()
     expect(confirm).not.toHaveBeenCalled()

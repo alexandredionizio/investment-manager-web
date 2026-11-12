@@ -30,5 +30,7 @@ describe('B3AssetRegistration', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar cadastro de ITSA4' }))
     await waitFor(() => expect(onRegister).toHaveBeenCalledWith('ITSA4'))
+    expect(await screen.findByText('Ativo ITSA4 cadastrado. Correspondências atualizadas.')).toBeTruthy()
+    expect(screen.queryByText(/ID 42/)).toBeNull()
   })
 })

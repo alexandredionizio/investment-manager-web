@@ -40,7 +40,7 @@ export default function B3AssetRegistration({ matches, loading, onLookup, onRegi
     try {
       const result = await onRegister(ticker)
       setCandidateByTicker(previous => { const next = { ...previous }; delete next[ticker]; return next })
-      setMessage(`Ativo ${ticker} ${result.created ? 'cadastrado' : 'reconhecido'} (ID ${result.assetId}). Correspondências atualizadas.`)
+      setMessage(`Ativo ${ticker} ${result.created ? 'cadastrado' : 'reconhecido'}. Correspondências atualizadas.`)
     } catch { setError(`Não foi possível cadastrar ${ticker}. Revise a identificação antes de tentar novamente.`) }
     finally { setBusy(null) }
   }

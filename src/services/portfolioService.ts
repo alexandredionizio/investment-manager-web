@@ -16,8 +16,8 @@ export async function findPortfolioById(
 
     return response.data
 }
-export async function createPortfolio(name: string): Promise<PortfolioResponse> {
-    const response = await api.post<PortfolioResponse>('/portfolios', { name: name.trim() })
+export async function createPortfolio(name: string, description = ''): Promise<PortfolioResponse> {
+    const response = await api.post<PortfolioResponse>('/portfolios', { name: name.trim(), description: description.trim() || null })
     return response.data
 }
 

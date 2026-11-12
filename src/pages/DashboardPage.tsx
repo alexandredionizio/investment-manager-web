@@ -143,6 +143,7 @@ function DashboardPage() {
     const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null)
     const [deleteConfirmation, setDeleteConfirmation] = useState('')
     const [portfolioName, setPortfolioName] = useState('')
+    const [portfolioDescription, setPortfolioDescription] = useState('')
     const [portfolioSaving, setPortfolioSaving] = useState(false)
     const [portfolioActionError, setPortfolioActionError] = useState('')
     const [portfolioNotice, setPortfolioNotice] = useState('')
@@ -309,6 +310,7 @@ function DashboardPage() {
         setPortfolioAction(action)
         setPortfolioActionError('')
         setPortfolioNotice('')
+        setPortfolioDescription('')
         setPortfolioName(action === 'rename'
             ? portfolios.find(p => p.id === (targetId ?? selectedPortfolioId))?.name ?? '' : '')
     }
@@ -322,7 +324,7 @@ function DashboardPage() {
         setPortfolioActionError('')
         try {
             if (portfolioAction === 'create') {
-                const created = await createPortfolio(name)
+                const created = await createPortfolio(name, portfolioDescription)
                 setPortfolios(current => [...current, created])
                 saveSelectedPortfolioId(created.id)
                 setPortfolioNotice('Carteira criada e selecionada.')
@@ -336,6 +338,7 @@ function DashboardPage() {
             setPortfolioMenuOpen(false)
             setRenameTargetId(null)
             setPortfolioName('')
+            setPortfolioDescription('')
         } catch {
             setPortfolioActionError(portfolioAction === 'create'
                 ? 'Não foi possível criar a carteira. Tente novamente.'
@@ -863,6 +866,13 @@ function DashboardPage() {
                                                 value={portfolioName} disabled={portfolioSaving}
                                                 onChange={event => setPortfolioName(event.target.value)}
                                                 style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: '0.5rem' }} />
+                                            {portfolioAction === 'create' && <>
+                                                <label htmlFor="dashboard-portfolio-description">Descrição (opcional)</label>
+                                                <textarea id="dashboard-portfolio-description" maxLength={255}
+                                                    value={portfolioDescription} disabled={portfolioSaving}
+                                                    onChange={event => setPortfolioDescription(event.target.value)}
+                                                    style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: '0.5rem' }} />
+                                            </>}
                                             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
                                                 <button type="submit" disabled={portfolioSaving || !portfolioName.trim()}>
                                                     {portfolioAction === 'create' ? 'Criar e selecionar' : 'Salvar nome'}
