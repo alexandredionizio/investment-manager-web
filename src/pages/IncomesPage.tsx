@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AxiosError } from 'axios'
 import Header from '../components/Header'
+import { downloadCsv } from '../utils/csvExport'
 import { calculateIncomeMetrics } from '../utils/incomeMetrics'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findAllAssets } from '../services/assetService'
@@ -445,6 +446,21 @@ function IncomesPage() {
                     <div className="income-section-header">
                         <div>
                             <h2>Histórico de proventos</h2>
+                            <button type="button"
+                                disabled={loading || expectedLoading || expectedError || Boolean(error) || displayedItems.length === 0}
+                                onClick={() => downloadCsv(
+                                    `proventos-${historyPortfolioId || 'todas'}-${new Date().toISOString().slice(0, 10)}.csv`,
+                                    ['Data-base', 'Pagamento', 'Situação', 'Ativo', 'Tipo', 'Quantidade', 'Valor por unidade', 'Valor total', 'Origem'],
+                                    displayedItems.map(i => [
+                                        i.baseDate ?? '', i.paymentDate,
+                                        i.status === 'received' ? 'Recebido' : 'Previsto',
+                                        i.assetTicker, formatIncomeType(i.type),
+                                        i.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 8 }),
+                                        i.amountPerUnit.toLocaleString('pt-BR', { minimumFractionDigits: 8, maximumFractionDigits: 8 }),
+                                        i.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                                        i.source === 'b3-expected' ? 'Previsão B3' : 'Provento cadastrado',
+                                    ])
+                                )}>Exportar proventos (CSV)</button>
                             <p>
                                 Consulte os rendimentos já
                                 registrados na carteira.

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 
 import Header from '../components/Header'
+import { downloadCsv } from '../utils/csvExport'
 import { findAllPortfolios } from '../services/portfolioService'
 import InstrumentPicker from '../components/InstrumentPicker'
 import { createPurchase } from '../services/instrumentService'
@@ -299,6 +300,18 @@ function TransactionsPage() {
                 {selectedPortfolioId !== null && (
                     <section>
                         <h2>Histórico de transações</h2>
+                        <button type="button"
+                            disabled={transactions.length === 0 || Boolean(historyError)}
+                            onClick={() => downloadCsv(
+                                `transacoes-${selectedPortfolioId}-${new Date().toISOString().slice(0, 10)}.csv`,
+                                ['Data', 'Ativo', 'Tipo', 'Corretora', 'Quantidade', 'Preço unitário', 'Valor bruto'],
+                                transactions.map(t => [
+                                    t.transactionDate, t.assetTicker, t.type === 'BUY' ? 'Compra' : 'Venda',
+                                    t.brokerName, t.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 8 }),
+                                    t.unitPrice.toLocaleString('pt-BR', { maximumFractionDigits: 8 }),
+                                    (t.quantity * t.unitPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                                ])
+                            )}>Exportar transações (CSV)</button>
                         <p>Exclusão disponível somente para lançamentos manuais que não comprometam o histórico. Registros da B3 exigem correção auditável.</p>
                         {transactionMessage && <p role="status">{transactionMessage}</p>}
                         {historyError && <p role="alert">{historyError}</p>}
