@@ -102,3 +102,14 @@ export async function commitB3Spreadsheet(
   )
   return data
 }
+
+/** Histórico auditável limitado à carteira autenticada; consulta sem qualquer gravação. */
+export async function listB3RejectedAttempts(
+  api: Pick<AxiosInstance, 'get' | 'defaults'>,
+  portfolioId: number,
+): Promise<import('../types/b3Import').B3RejectedAttempt[]> {
+  const { data } = await api.get<import('../types/b3Import').B3RejectedAttempt[]>(
+    b3Endpoint(api, 'rejected-attempts'), { params: { portfolioId } },
+  )
+  return data
+}

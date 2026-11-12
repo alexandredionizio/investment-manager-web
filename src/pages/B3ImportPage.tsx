@@ -8,6 +8,7 @@ import B3BrokerMatching from '../components/B3BrokerMatching'
 import B3AssetRegistration from '../components/B3AssetRegistration'
 import B3Reconciliation from '../components/B3Reconciliation'
 import B3ImportCommit from '../components/B3ImportCommit'
+import B3RejectedAttemptHistory from '../components/B3RejectedAttemptHistory'
 import { findAllPortfolios } from '../services/portfolioService'
 import type { PortfolioResponse } from '../types/portfolio'
 import { useEffect } from 'react'
@@ -233,6 +234,8 @@ export default function B3ImportPage() {
                     result={commitResult}
                     onCommit={commit}
                 />}
+                {file && portfolioId !== null &&
+                    <B3RejectedAttemptHistory key={portfolioId} portfolioId={portfolioId} />}
                 </section>
             </main>
         </>

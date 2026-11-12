@@ -107,3 +107,12 @@ export type B3ImportCommitResponse = {
   importedRows: number
   rows: Array<{ excelRow: number; transactionId: number }>
 }
+
+/** Tentativas explicitamente confirmadas, porém rejeitadas; nunca geram transações. */
+export type B3RejectedAttempt = {
+  id: number
+  fileName: string
+  rejectedAt: string
+  reason: string
+  rows: Array<{ excelRow: number; reason: string }>
+}
