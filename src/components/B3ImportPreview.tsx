@@ -111,7 +111,7 @@ export default function B3ImportPreview({ previewFile, onPreviewLoaded, onFileCh
             </table>
             {displayed.length === 0 && <p>Nenhuma linha corresponde ao filtro selecionado.</p>}
           </div>
-          <p><strong>Pré-visualização apenas.</strong> A conciliação, a escolha da carteira e a confirmação da importação serão implementadas em etapas posteriores.</p>
+          <p><strong>Pré-visualização apenas.</strong> Após conferir os dados, faça a correspondência de instituições e ativos, selecione a carteira, execute a conciliação e confirme a importação. Nenhuma operação é registrada sem confirmação explícita.</p>
         </div>
       )}
     </section>
