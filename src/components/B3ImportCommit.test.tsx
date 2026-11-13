@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import B3ImportCommit from './B3ImportCommit'
+import { getSelectedPortfolioId, clearSelectedPortfolioId } from '../services/selectedPortfolio'
 import type { B3ReconciliationResponse } from '../types/b3Import'
 
 afterEach(cleanup)
@@ -51,6 +52,30 @@ describe('B3ImportCommit', () => {
     expect(screen.getByRole('link', { name: 'Ver posições da carteira' }).getAttribute('href')).toBe('/portfolios/6')
     expect(screen.getByRole('link', { name: 'Ver indicadores' }).getAttribute('href')).toBe('/dashboard')
     expect(screen.getByRole('status').textContent).not.toMatch(/Lote #|Carteira #|banco de dados de testes/)
+  })
+  it('IM-045: direciona o Dashboard para a carteira importada somente quando o usuario clicar', () => {
+    clearSelectedPortfolioId()
+    render(<B3ImportCommit reconciliation={null} loading={false} error="" result={{
+      batchId: 91, portfolioId: 6, status: 'IMPORTED', importedRows: 2,
+      rows: [{ excelRow: 2, transactionId: 80 }, { excelRow: 3, transactionId: 81 }],
+    }} onCommit={vi.fn()} />)
+    expect(getSelectedPortfolioId()).toBeNull()
+    const link = screen.getByRole('link', { name: 'Ver indicadores' })
+    expect(link.getAttribute('href')).toBe('/dashboard')
+    fireEvent.click(link)
+    expect(getSelectedPortfolioId()).toBe(6)
+    clearSelectedPortfolioId()
+  })
+  it('IM-045: lote já importado também permite consultar a carteira correta sem novas gravações', () => {
+    clearSelectedPortfolioId()
+    render(<B3ImportCommit reconciliation={null} loading={false} error="" result={{
+      batchId: 91, portfolioId: 6, status: 'ALREADY_IMPORTED', importedRows: 0,
+      rows: [{ excelRow: 2, transactionId: 80 }, { excelRow: 3, transactionId: 81 }],
+    }} onCommit={vi.fn()} />)
+    expect(getSelectedPortfolioId()).toBeNull()
+    fireEvent.click(screen.getByRole('link', { name: 'Ver indicadores' }))
+    expect(getSelectedPortfolioId()).toBe(6)
+    clearSelectedPortfolioId()
   })
   it('reimportação idempotente comunica ausência de novo lançamento e não expõe identificadores técnicos', () => {
     const onCommit = vi.fn(async () => {})

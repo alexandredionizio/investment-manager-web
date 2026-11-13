@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { saveSelectedPortfolioId } from '../services/selectedPortfolio'
 import type { B3ImportCommitResponse, B3ReconciliationResponse } from '../types/b3Import'
 
 type Props = {
@@ -27,7 +28,7 @@ export default function B3ImportCommit({ reconciliation, loading, error, result,
           <p>{result.status === 'IMPORTED'
             ? 'Confira as posições e o histórico. Os indicadores serão recalculados nas próximas consultas.'
             : 'Nenhuma operação adicional foi registrada nesta tentativa.'}</p>
-          <p><a href={`/portfolios/${result.portfolioId}`}>Ver posições da carteira</a> · <a href="/dashboard">Ver indicadores</a></p>
+          <p><a href={`/portfolios/${result.portfolioId}`}>Ver posições da carteira</a> · <a href="/dashboard" onClick={() => saveSelectedPortfolioId(result.portfolioId)}>Ver indicadores</a></p>
         </div>
       ) : !safe ? (
         <p role="status">A importação está bloqueada: resolva todas as linhas em revisão ou bloqueadas e refaça a conciliação. Nenhuma operação será gravada.</p>
