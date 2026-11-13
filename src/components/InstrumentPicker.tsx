@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { userFacingApiMessage } from '../utils/userFacingApiMessage'
 import { findAllAssets } from '../services/assetService'
 import { searchInstruments, findSaleOptions } from '../services/instrumentService'
 import type { InstrumentCandidate, InstrumentSelection, SaleOption } from '../services/instrumentService'
@@ -8,7 +9,8 @@ import type { TransactionType } from '../types/transaction'
 
 function message(error: unknown) {
     return axios.isAxiosError(error) && typeof error.response?.data?.message === 'string'
-        ? error.response.data.message : 'Não foi possível consultar os instrumentos. Tente novamente.'
+        ? userFacingApiMessage(error.response.data.message, 'Não foi possível consultar os instrumentos. Tente novamente.')
+        : 'Não foi possível consultar os instrumentos. Tente novamente.'
 }
 interface Props { type: TransactionType; portfolioId: string; date: string; onChange: (value: InstrumentSelection | null) => void }
 export default function InstrumentPicker({ type, portfolioId, date, onChange }: Props) {

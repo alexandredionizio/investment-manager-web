@@ -3,6 +3,7 @@ import { AxiosError } from 'axios'
 import Header from '../components/Header'
 import { csvExportFilename, downloadCsv } from '../utils/csvExport'
 import { calculateIncomeMetrics } from '../utils/incomeMetrics'
+import { userFacingApiMessage } from '../utils/userFacingApiMessage'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findAllAssets } from '../services/assetService'
 import {
@@ -207,7 +208,7 @@ function IncomesPage() {
                     error.response?.data as ApiErrorResponse
 
                 if (apiError?.message) {
-                    setError(apiError.message)
+                    setError(userFacingApiMessage(apiError.message, 'Não foi possível cadastrar o provento.'))
                     return
                 }
             }
