@@ -9,7 +9,10 @@ import { findAllBrokers } from '../services/brokerService'
 import { findAllAssets, findAssetIdentifiers } from '../services/assetService'
 import { createTransaction, deleteManualTransaction, findTransactionsByPortfolio, findB3LinkedTransactions, findB3Reversals, reverseB3Transaction } from '../services/transactionService'
 import { createPurchase, searchInstruments, findSaleOptions } from '../services/instrumentService'
-vi.mock('../utils/csvExport', () => ({ downloadCsv: vi.fn() }))
+vi.mock('../utils/csvExport', async (importOriginal) => ({
+    ...await importOriginal<typeof import('../utils/csvExport')>(),
+    downloadCsv: vi.fn(),
+}))
 vi.mock('../services/portfolioService', () => ({ findAllPortfolios: vi.fn() }))
 vi.mock('../services/brokerService', () => ({ findAllBrokers: vi.fn() }))
 vi.mock('../services/assetService', () => ({ findAllAssets: vi.fn(), findAssetIdentifiers: vi.fn() }))

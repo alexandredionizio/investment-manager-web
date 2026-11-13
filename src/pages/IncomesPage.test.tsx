@@ -6,7 +6,10 @@ import api from '../services/api'
 import IncomesPage from './IncomesPage'
 import { downloadCsv } from '../utils/csvExport'
 import { findExpectedIncomesByPortfolio } from '../services/expectedIncomeQueryService'
-vi.mock('../utils/csvExport', () => ({ downloadCsv: vi.fn() }))
+vi.mock('../utils/csvExport', async (importOriginal) => ({
+    ...await importOriginal<typeof import('../utils/csvExport')>(),
+    downloadCsv: vi.fn(),
+}))
 vi.mock('../services/expectedIncomeQueryService', () => ({ findExpectedIncomesByPortfolio: vi.fn() }))
 
 const income = { id: 1, portfolioId: 1, assetId: 1, assetTicker: 'ITUB4', type: 'DIVIDEND',
@@ -124,7 +127,7 @@ it('IM-035: exporta apenas proventos recebidos conforme filtro, sem identificado
     fireEvent.click(exportButton)
     expect(downloadCsv).toHaveBeenCalledTimes(1)
     const [name, headers, exported] = vi.mocked(downloadCsv).mock.calls[0]
-    expect(name).toMatch(/^proventos-1-\d{4}-\d{2}-\d{2}\.csv$/)
+    expect(name).toMatch(/^proventos-principal-\d{4}-\d{2}-\d{2}\.csv$/)
     expect(headers).toEqual(['Data-base', 'Pagamento', 'Situação', 'Ativo', 'Tipo', 'Quantidade', 'Valor por unidade', 'Valor total', 'Origem'])
     expect(exported).toHaveLength(1)
     expect(exported[0]).toEqual(['2026-09-10', '2026-10-30', 'Recebido', 'ITUB4', 'Dividendo', '100', '0,50000000', '50,00', 'Provento cadastrado'])

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 
 import Header from '../components/Header'
-import { downloadCsv } from '../utils/csvExport'
+import { csvExportFilename, downloadCsv } from '../utils/csvExport'
 import { findAllPortfolios } from '../services/portfolioService'
 import InstrumentPicker from '../components/InstrumentPicker'
 import { createPurchase } from '../services/instrumentService'
@@ -305,7 +305,7 @@ function TransactionsPage() {
                         <button type="button"
                             disabled={transactions.length === 0 || Boolean(historyError)}
                             onClick={() => downloadCsv(
-                                `transacoes-${(portfolios.find(p => p.id === selectedPortfolioId)?.name ?? 'carteira').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'carteira'}-${new Date().toISOString().slice(0, 10)}.csv`,
+                                csvExportFilename('transacoes', portfolios.find(p => p.id === selectedPortfolioId)?.name ?? 'carteira'),
                                 ['Data', 'Ativo', 'Tipo', 'Corretora', 'Quantidade', 'Preço unitário', 'Valor bruto'],
                                 transactions.map(t => [
                                     t.transactionDate, t.assetTicker, t.type === 'BUY' ? 'Compra' : 'Venda',

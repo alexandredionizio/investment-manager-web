@@ -22,3 +22,15 @@ export function downloadCsv(name: string, headers: string[], rows: (string | num
     anchor.remove()
     URL.revokeObjectURL(url)
 }
+
+/** Nome de exportação legível, sem IDs de carteira nem caracteres de caminho. */
+export function csvExportFilename(prefix: 'proventos' | 'transacoes', portfolioName?: string | null, date = new Date()): string {
+    const slug = (portfolioName || 'todas').normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 80) || 'carteira'
+    const yyyyMmDd = date.toISOString().slice(0, 10)
+    return `${prefix}-${slug}-${yyyyMmDd}.csv`
+}

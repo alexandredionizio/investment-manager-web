@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AxiosError } from 'axios'
 import Header from '../components/Header'
-import { downloadCsv } from '../utils/csvExport'
+import { csvExportFilename, downloadCsv } from '../utils/csvExport'
 import { calculateIncomeMetrics } from '../utils/incomeMetrics'
 import { findAllPortfolios } from '../services/portfolioService'
 import { findAllAssets } from '../services/assetService'
@@ -449,7 +449,7 @@ function IncomesPage() {
                             <button type="button"
                                 disabled={loading || expectedLoading || expectedError || Boolean(error) || displayedItems.length === 0}
                                 onClick={() => downloadCsv(
-                                    `proventos-${historyPortfolioId || 'todas'}-${new Date().toISOString().slice(0, 10)}.csv`,
+                                    csvExportFilename('proventos', historyPortfolioId ? portfolios.find(p => String(p.id) === historyPortfolioId)?.name ?? 'carteira' : 'todas'),
                                     ['Data-base', 'Pagamento', 'Situação', 'Ativo', 'Tipo', 'Quantidade', 'Valor por unidade', 'Valor total', 'Origem'],
                                     displayedItems.map(i => [
                                         i.baseDate ?? '', i.paymentDate,

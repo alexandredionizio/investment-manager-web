@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createCsv } from './csvExport'
+import { createCsv, csvExportFilename } from './csvExport'
 
 describe('IM-034: exportação CSV segura', () => {
     it('usa UTF-8 BOM, separador compatível com Excel pt-BR e preserva campos com aspas', () => {
@@ -15,5 +15,21 @@ describe('IM-034: exportação CSV segura', () => {
     })
     it('produz somente cabeçalho quando não há linhas', () => {
         expect(createCsv(['Ativo'], [])).toBe('\uFEFF"Ativo"\r\n')
+    })
+})
+
+describe('IM-058: nomes CSV reconhecíveis, sem identificadores internos', () => {
+    it('usa o nome da carteira nos dois tipos de exportação', () => {
+        const date = new Date('2026-11-12T12:00:00.000Z')
+        expect(csvExportFilename('proventos', 'Carteira São José', date))
+            .toBe('proventos-carteira-sao-jose-2026-11-12.csv')
+        expect(csvExportFilename('transacoes', 'Minha Carteira #1', date))
+            .toBe('transacoes-minha-carteira-1-2026-11-12.csv')
+    })
+    it('limita nomes problemáticos e oferece fallback', () => {
+        expect(csvExportFilename('proventos', '../', new Date('2026-11-12T12:00:00Z')))
+            .toBe('proventos-carteira-2026-11-12.csv')
+        expect(csvExportFilename('proventos', null, new Date('2026-11-12T12:00:00Z')))
+            .toBe('proventos-todas-2026-11-12.csv')
     })
 })
