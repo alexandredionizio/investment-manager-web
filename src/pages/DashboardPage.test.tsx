@@ -5,6 +5,7 @@ import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import type { ReactNode } from 'react'
 import api from '../services/api'
 import DashboardPage from './DashboardPage'
+import { saveSelectedPortfolioId, clearSelectedPortfolioId } from '../services/selectedPortfolio'
 
 // Only chart layout is replaced; the page, HTTP services and state transitions are real.
 vi.mock('recharts', () => ({
@@ -57,6 +58,32 @@ const ready = async () => {
     await screen.findByText('Patrimônio atual', { exact: true })
     await waitFor(() => expect(card('Patrimônio atual').textContent).not.toContain('Carregando...'))
 }
+
+describe('IM-045: Dashboard da carteira importada', () => {
+    it('seleciona a carteira importada e carrega somente os seus indicadores', async () => {
+        saveSelectedPortfolioId(6)
+        try {
+            override = url => {
+                if (url === '/portfolios') return [portfolio, { ...portfolio, id: 6, name: 'Carteira B3 importada' }]
+                if (url.endsWith('/positions/valuations')) {
+                    return [{ ...position, assetTicker: 'PETR4', quantity: 5, totalCost: 300,
+                        averagePrice: 60, currentPrice: 70, currentValue: 350,
+                        profitLoss: 50, profitabilityPercent: 16.67 }]
+                }
+                return unchanged
+            }
+            open()
+            await waitFor(() => expect(screen.getByRole('button', { name: 'Carteira' }).textContent)
+                .toContain('Carteira B3 importada'))
+            await waitFor(() => expect(card('Patrimônio atual').textContent).toContain('350,00'))
+            expect(card('Patrimônio atual').textContent).not.toContain('1.000,00')
+            expect(vi.mocked(api.get).mock.calls.some(([url]) => String(url).includes('/portfolios/6/'))).toBe(true)
+            expect(vi.mocked(api.get).mock.calls.some(([url]) => String(url).includes('/portfolios/1/'))).toBe(false)
+        } finally {
+            clearSelectedPortfolioId()
+        }
+    })
+})
 
 describe('Dashboard data availability', () => {
     it('shows incomplete benchmark history without hiding portfolio metrics or inventing returns', async () => {
