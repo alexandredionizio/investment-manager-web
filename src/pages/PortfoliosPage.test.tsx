@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import api from '../services/api'
 import PortfoliosPage from './PortfoliosPage'
@@ -80,4 +80,61 @@ it('keeps the portfolios page focused on consultation rather than management', a
     expect(screen.getByText('Crie ou renomeie carteiras pelo seletor do Dashboard.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Renomear/ })).toBeNull()
     expect(screen.queryByLabelText('Nome da carteira')).toBeNull()
+})
+
+it('returns from portfolio details to the portfolios list with one click', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async url => {
+        if (url === '/portfolios') return { data: [{ id: 1, name: 'Minha carteira' }] }
+        if (url === '/portfolios/1') return { data: { id: 1, name: 'Minha carteira' } }
+        if (url === '/portfolios/1/positions/valuations') return { data: [] }
+        if (url === '/portfolios/1/positions') return { data: [] }
+        throw unavailable
+    })
+    render(<MemoryRouter initialEntries={['/portfolios/1']}><Routes>
+        <Route path="/portfolios" element={<PortfoliosPage />} />
+        <Route path="/portfolios/:id" element={<PortfolioDetailsPage />} />
+    </Routes></MemoryRouter>)
+    const back = screen.getByRole('link', { name: 'Voltar para Carteiras' })
+    expect(back.getAttribute('href')).toBe('/portfolios')
+    fireEvent.click(back)
+    expect(await screen.findByText('Minhas carteiras')).toBeTruthy()
+    expect(await screen.findByText('Minha carteira')).toBeTruthy()
+})
+
+it('offers navigation back even when loading the portfolio fails', async () => {
+    vi.spyOn(api, 'get').mockRejectedValue(unavailable)
+    render(<MemoryRouter initialEntries={['/portfolios/1']}><Routes>
+        <Route path="/portfolios/:id" element={<PortfolioDetailsPage />} />
+    </Routes></MemoryRouter>)
+    expect(screen.getByRole('link', { name: 'Voltar para Carteiras' }).getAttribute('href')).toBe('/portfolios')
+    expect(await screen.findByRole('alert')).toBeTruthy()
+})
+
+// IM-061: não bloquear a primeira navegação à lista com chamadas de mercado.
+it('shows the portfolio list before a slow valuation request completes', async () => {
+    let finishValuation!: (value: { data: unknown[] }) => void
+    const market = new Promise<{ data: unknown[] }>(resolve => { finishValuation = resolve })
+    vi.spyOn(api, 'get').mockImplementation(async url => {
+        if (url === '/portfolios') return { data: [{ id: 31, name: 'Carteira rápida' }] }
+        if (url === '/portfolios/31/positions/valuations') return market
+        throw unavailable
+    })
+    render(<MemoryRouter><PortfoliosPage /></MemoryRouter>)
+    expect(await screen.findByText('Carteira rápida')).toBeTruthy()
+    expect(screen.queryByText('Carregando carteiras...')).toBeNull()
+    expect(screen.getAllByText('Calculando...').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /Ver carteira/ })).toBeTruthy()
+    finishValuation({ data: [] })
+    await waitFor(() => expect(screen.queryByText('Calculando...')).toBeNull())
+})
+
+it('keeps listed portfolios visible when one valuation is unavailable', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async url => {
+        if (url === '/portfolios') return { data: [{ id: 32, name: 'Carteira preservada' }] }
+        throw unavailable
+    })
+    render(<MemoryRouter><PortfoliosPage /></MemoryRouter>)
+    expect(await screen.findByText('Carteira preservada')).toBeTruthy()
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.queryByText('Nenhuma carteira encontrada.')).toBeNull()
 })

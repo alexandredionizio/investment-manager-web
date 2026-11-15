@@ -20,12 +20,13 @@ import api from '../services/api'
 import { getXirrPreview } from '../services/xirrPreviewService'
 import { XirrPreviewCard } from '../components/XirrPreviewCard'
 import ValuationDetails from '../components/ValuationDetails'
+import { DashboardIssuesSummary } from '../components/DashboardIssuesSummary'
 import { summarizeValuations, benchmarkAvailability } from '../services/valuation'
 
 import {
     findDashboardPortfolios, findDashboardHistory as findPortfolioHistory,
     findDashboardComparison as findBenchmarkComparison, loadDashboardData,
-    dashboardErrorMessage, dashboardSectionLabels, dashboardSectionKeys,
+    dashboardErrorMessage, dashboardSectionKeys,
 } from '../services/dashboardService'
 import type { DashboardData, DashboardIssues } from '../services/dashboardService'
 
@@ -41,6 +42,7 @@ import type {
 } from '../types/portfolioHistory'
 import type { PortfolioReturnResponse } from '../types/portfolioReturn'
 import type { BenchmarkComparisonPointResponse } from '../types/benchmarkComparison'
+import { chartDataInRange, dateAxisTicks, dateLabel, fullDateLabel, observedAxisRange, isPartialCoverage, selectedDateRange } from '../utils/chartDateRange'
 
 const historyPeriods: {
     value: PortfolioHistoryPeriod
@@ -555,8 +557,6 @@ function DashboardPage() {
     const lastTwelveMonthsWeightedReturn =
         lastTwelveMonthsReturns?.totalReturn == null ? null : lastTwelveMonthsReturns.totalReturn * 100
 
-    const lastMonthWeightedReturn =
-        lastMonthReturns?.totalReturn == null ? null : lastMonthReturns.totalReturn * 100
 
     const monthlyReturnRows = (() => {
 
@@ -670,12 +670,13 @@ function DashboardPage() {
         return pendingSections[key] ? 'Carregando...' : issues[key] ? 'Indisponível' : value
     }
 
-    function returnValue(key: keyof DashboardIssues, value: number | null) {
-        return metricValue(key, value === null ? 'Sem dados suficientes' : (value >= 0 ? '+' : '') + formatPercentage(value) + '%')
+    function returnValue(key: keyof DashboardIssues, value: number | null, confirmedAlternative = false) {
+        const formatted = value === null ? 'Sem dados suficientes' : (value >= 0 ? '+' : '') + formatPercentage(value) + '%'
+        return confirmedAlternative && value !== null ? formatted : metricValue(key, formatted)
     }
 
-    function returnClass(value: number | null, key?: keyof DashboardIssues) {
-        return value === null || (key && (issues[key] || pendingSections[key])) ? '' : value >= 0 ? 'positive' : 'negative'
+    function returnClass(value: number | null, key?: keyof DashboardIssues, confirmedAlternative = false) {
+        return value === null || (!confirmedAlternative && key && (issues[key] || pendingSections[key])) ? '' : value >= 0 ? 'positive' : 'negative'
     }
 
     function formatCurrency(value: number | null) {
@@ -725,21 +726,35 @@ function DashboardPage() {
         ).format(value)
     }
 
-    function formatHistoryDate(value: string) {
+    const comparisonRange = selectedDateRange(returnPeriod, benchmarkComparison.map(point => point.date), returnCustomStartDate, returnCustomEndDate)
+    const historyRange = selectedDateRange(historyPeriod, portfolioHistory?.points.map(point => point.date) ?? [], customStartDate, customEndDate)
+    const comparisonChartData = chartDataInRange(benchmarkComparison, comparisonRange).map(point => ({
+        ...point,
+        portfolioReturnPercent: point.portfolioReturn * 100,
+        cdiReturnPercent: point.cdiReturn === null ? null : point.cdiReturn * 100,
+        ibovReturnPercent: point.ibovReturn === null ? null : point.ibovReturn * 100,
+    }))
+    const historyChartData = chartDataInRange(portfolioHistory?.points ?? [], historyRange)
+    const comparisonAxisRange = observedAxisRange(comparisonChartData, comparisonRange)
+    const historyAxisRange = observedAxisRange(historyChartData, historyRange)
+    // The comparison API computes its portfolio series from the same return service.
+    // If the independent 1M card request fails, reuse that *confirmed* series only
+    // when it covers the entire requested starting boundary. Never extrapolate a
+    // partial period or use comparison data from 3M/1Y as a 1M result.
+    const confirmedMonthComparison = returnPeriod === 'ONE_MONTH'
+        && !issues.comparison && !pendingSections.comparison && !returnLoading
+        && comparisonRange != null && comparisonChartData.length > 0
+        && comparisonChartData[0].timestamp <= comparisonRange.start + 86400000
+        && comparisonChartData.every(point => Number.isFinite(point.portfolioReturnPercent))
+        ? comparisonChartData[comparisonChartData.length - 1] : null
+    const monthRecoveredFromComparison = lastMonthReturns?.totalReturn == null
+        && confirmedMonthComparison !== null
+    const lastMonthWeightedReturn = lastMonthReturns?.totalReturn == null
+        ? confirmedMonthComparison?.portfolioReturnPercent ?? null
+        : lastMonthReturns.totalReturn * 100
+    const visibleIssues: DashboardIssues = monthRecoveredFromComparison
+        ? { ...issues, month: null } : issues
 
-        const [year, month, day] =
-            value.split('-')
-
-        return `${day}/${month}/${year}`
-    }
-
-    function formatHistoryAxisDate(value: string) {
-
-        const [, month, day] =
-            value.split('-')
-
-        return `${day}/${month}`
-    }
 
     if (loading && portfolios.length === 0) {
 
@@ -903,11 +918,7 @@ function DashboardPage() {
                 )) : !dashboardReady ? null : (
                     <>
                         {emptyPortfolio === true && <p role="status">Esta carteira ainda não possui transações. As métricas serão exibidas conforme houver dados.</p>}
-                        {Object.entries(issues).filter(([, issue]) => issue).map(([key, issue]) => (
-                            <p key={key} role="alert" className="dashboard-error">
-                                {dashboardSectionLabels[key as keyof DashboardIssues]}: {issue}
-                            </p>
-                        ))}
+                        <DashboardIssuesSummary issues={visibleIssues} />
 
                         <div className="dashboard-metrics">
 
@@ -1155,12 +1166,13 @@ function DashboardPage() {
                                         Último mês
                                     </span>
 
-                                    <strong className={returnClass(lastMonthWeightedReturn, 'month')}>
-                                        {returnValue('month', lastMonthWeightedReturn)}
+                                    <strong className={returnClass(lastMonthWeightedReturn, 'month', monthRecoveredFromComparison)}>
+                                        {returnValue('month', lastMonthWeightedReturn, monthRecoveredFromComparison)}
                                     </strong>
 
                                     <small>
                                         Rentabilidade ponderada no período
+                                        {monthRecoveredFromComparison && ' · Confirmada pela série da carteira até ' + fullDateLabel(confirmedMonthComparison!.timestamp)}
                                     </small>
 
                                 </article>
@@ -1169,27 +1181,26 @@ function DashboardPage() {
 
                             {benchmarkAvailability(benchmarkComparison.map(p => p.cdiReturn), 'CDI') && <p>{benchmarkAvailability(benchmarkComparison.map(p => p.cdiReturn), 'CDI')}</p>}
                             {benchmarkAvailability(benchmarkComparison.map(p => p.ibovReturn), 'IBOV') && <p>{benchmarkAvailability(benchmarkComparison.map(p => p.ibovReturn), 'IBOV')}</p>}
-                            <div className="dashboard-return-chart">
+                            {comparisonRange && comparisonChartData.length > 0 && (
+                                <p role="status">Período solicitado: {fullDateLabel(comparisonRange.start)} a {fullDateLabel(comparisonRange.end)}. Dados disponíveis: {fullDateLabel(comparisonChartData[0].timestamp)} a {fullDateLabel(comparisonChartData[comparisonChartData.length - 1].timestamp)}.</p>
+                            )}
+                            {isPartialCoverage(comparisonRange, comparisonChartData) && (
+                                <p role="status">O histórico de comparação disponível começa em {fullDateLabel(comparisonChartData[0].timestamp)}. O gráfico mostra apenas datas com dados reais, não todo o período solicitado.</p>
+                            )}
+                            <div className={`dashboard-return-chart${!returnLoading && !pendingSections.comparison && (issues.comparison || comparisonChartData.length === 0) ? ' dashboard-return-chart--unavailable' : ''}`}>
+
                                 {returnLoading || pendingSections.comparison ? (
                                     <div className="dashboard-history-message">
                                         Carregando rentabilidade...
                                     </div>
-                                ) : issues.comparison ? (<p role="alert">{issues.comparison}</p>) : benchmarkComparison.length === 0 ? (
+                                ) : issues.comparison ? (<p role="alert">{issues.comparison}</p>) : comparisonChartData.length === 0 ? (
                                     <div className="dashboard-history-message">
                                         Nenhuma comparação de rentabilidade disponível.
                                     </div>
                                 ) : (
                                     <ResponsiveContainer width="100%" height="100%">
                                         <LineChart
-                                            data={benchmarkComparison.map((point) => ({
-                                                ...point,
-                                                portfolioReturnPercent:
-                                                    point.portfolioReturn * 100,
-                                                cdiReturnPercent:
-                                                    point.cdiReturn === null ? null : point.cdiReturn * 100,
-                                                ibovReturnPercent:
-                                                    point.ibovReturn === null ? null : point.ibovReturn * 100,
-                                            }))}
+                                            data={comparisonChartData}
                                             margin={{
                                                 top: 10,
                                                 right: 15,
@@ -1203,8 +1214,13 @@ function DashboardPage() {
                                             />
 
                                             <XAxis
-                                                dataKey="date"
-                                                tickFormatter={formatHistoryAxisDate}
+                                                dataKey="timestamp"
+                                                type="number"
+                                                scale="time"
+                                                domain={[comparisonAxisRange?.start ?? 'dataMin', comparisonAxisRange?.end ?? 'dataMax']}
+                                                ticks={dateAxisTicks(comparisonAxisRange)}
+                                                allowDataOverflow
+                                                tickFormatter={dateLabel}
                                                 minTickGap={30}
                                             />
 
@@ -1225,8 +1241,9 @@ function DashboardPage() {
                                             />
 
                                             <Tooltip
-                                                labelFormatter={(value) =>
-                                                    formatHistoryDate(String(value))
+                                                labelFormatter={(_, payload) =>
+                                                    payload?.[0]?.payload?.timestamp != null
+                                                        ? fullDateLabel(Number(payload[0].payload.timestamp)) : ''
                                                 }
                                                 formatter={(value, name) => [
                                                     `${formatPercentage(Number(value))}%`,
@@ -1471,7 +1488,7 @@ function DashboardPage() {
                                 </div>
 
                             ) : issues.history ? (<p role="alert">{issues.history}</p>) : !portfolioHistory ||
-                            portfolioHistory.points.length === 0 ? (
+                            historyChartData.length === 0 ? (
 
                                 <div className="dashboard-history-message">
                                     Nenhum histórico disponível.
@@ -1480,16 +1497,21 @@ function DashboardPage() {
                             ) : (
 
                                 <div className="dashboard-history-chart">
+                                    {historyRange && historyChartData.length > 0 && (
+                                        <p role="status">Período solicitado: {fullDateLabel(historyRange.start)} a {fullDateLabel(historyRange.end)}. Dados disponíveis: {fullDateLabel(historyChartData[0].timestamp)} a {fullDateLabel(historyChartData[historyChartData.length - 1].timestamp)}.</p>
+                                    )}
+                                    {isPartialCoverage(historyRange, historyChartData) && (
+                                        <p role="status">O histórico patrimonial disponível começa em {fullDateLabel(historyChartData[0].timestamp)}. O gráfico foi ajustado aos dados existentes; não há valores anteriores confirmados.</p>
+                                    )}
 
+                                    <div className="dashboard-history-plot">
                                     <ResponsiveContainer
                                         width="100%"
                                         height="100%"
                                     >
 
                                         <LineChart
-                                            data={
-                                                portfolioHistory.points
-                                            }
+                                            data={historyChartData}
                                             margin={{
                                                 top: 10,
                                                 right: 15,
@@ -1504,10 +1526,13 @@ function DashboardPage() {
                                             />
 
                                             <XAxis
-                                                dataKey="date"
-                                                tickFormatter={
-                                                    formatHistoryAxisDate
-                                                }
+                                                dataKey="timestamp"
+                                                type="number"
+                                                scale="time"
+                                                domain={[historyAxisRange?.start ?? 'dataMin', historyAxisRange?.end ?? 'dataMax']}
+                                                ticks={dateAxisTicks(historyAxisRange)}
+                                                allowDataOverflow
+                                                tickFormatter={dateLabel}
                                                 minTickGap={30}
                                             />
 
@@ -1519,14 +1544,9 @@ function DashboardPage() {
                                             />
 
                                             <Tooltip
-                                                labelFormatter={(
-                                                    value,
-                                                ) =>
-                                                    formatHistoryDate(
-                                                        String(
-                                                            value,
-                                                        ),
-                                                    )
+                                                labelFormatter={(_, payload) =>
+                                                    payload?.[0]?.payload?.timestamp != null
+                                                        ? fullDateLabel(Number(payload[0].payload.timestamp)) : ''
                                                 }
                                                 formatter={(
                                                     value,
@@ -1555,6 +1575,7 @@ function DashboardPage() {
                                         </LineChart>
 
                                     </ResponsiveContainer>
+                                    </div>
 
                                 </div>
                             )}

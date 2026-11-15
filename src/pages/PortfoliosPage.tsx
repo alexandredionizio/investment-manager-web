@@ -12,6 +12,7 @@ import type { PortfolioResponse } from '../types/portfolio'
 
 interface PortfolioSummary {
     issue: string | null
+    valuationLoading: boolean
     portfolio: PortfolioResponse
     currentValue: number | null
     totalCost: number | null
@@ -29,48 +30,68 @@ function PortfoliosPage() {
     const navigate = useNavigate()
 
     useEffect(() => {
+        // IM-061: a lista de carteiras não deve aguardar integrações de mercado.
+        // Nada é armazenado entre logins: o efeito pertence apenas à montagem atual.
+        let active = true
         async function loadPortfolios() {
             try {
                 const portfolios = await findAllPortfolios()
+                if (!active) return
 
-                const summaries = await Promise.all(
-                    portfolios.map(async (portfolio) => {
+                const selectedId = getSelectedPortfolioId()
+                const ordered = [...portfolios].sort((a, b) =>
+                    Number(b.id === selectedId) - Number(a.id === selectedId))
+                setPortfolioSummaries(ordered.map(portfolio => ({
+                    portfolio, issue: null, valuationLoading: true,
+                    currentValue: null, totalCost: null, profitLoss: null,
+                    profitabilityPercent: null, assetsCount: null,
+                })))
+                setLoading(false)
+
+                // Limita chamadas simultâneas para não sobrecarregar integrações e
+                // evitar que uma avaliação lenta bloqueie as demais carteiras.
+                let next = 0
+                async function worker() {
+                    while (active && next < ordered.length) {
+                        const portfolio = ordered[next++]
+                        let result: PortfolioSummary
                         try {
                             const positions = await findMarketPositions(portfolio.id)
                             const summary = summarizeValuations(positions)
-                            return { portfolio, currentValue: summary.value, totalCost: summary.totalCost, profitLoss: summary.profit,
-                                profitabilityPercent: summary.percent, assetsCount: positions.length,
-                                issue: summary.partial ? 'Patrimônio parcialmente avaliado: subtotal e resultado apenas das posições avaliadas. Custo sem avaliação: ' + formatCurrency(summary.missingCost)
+                            result = { portfolio, valuationLoading: false,
+                                currentValue: summary.value, totalCost: summary.totalCost,
+                                profitLoss: summary.profit, profitabilityPercent: summary.percent,
+                                assetsCount: positions.length,
+                                issue: summary.partial
+                                    ? 'Patrimônio parcialmente avaliado: subtotal e resultado apenas das posições avaliadas. Custo sem avaliação: ' + formatCurrency(summary.missingCost)
                                     : summary.estimated ? 'Inclui remuneração contratual estimada.' : null }
                         } catch (marketError) {
                             let totalCost: number | null = null
                             let assetsCount: number | null = null
                             try {
                                 const accounting = await findPositions(portfolio.id)
-                                totalCost = accounting.reduce((sum, p) => sum + p.totalCost, 0)
+                                totalCost = accounting.reduce((sum, position) => sum + position.totalCost, 0)
                                 assetsCount = accounting.length
-                            } catch { /* Accounting unavailable remains absent, never zero. */ }
-                            return { portfolio, currentValue: null, profitLoss: null, profitabilityPercent: null,
+                            } catch { /* Não substituir dados indisponíveis por zero. */ }
+                            result = { portfolio, valuationLoading: false,
+                                currentValue: null, profitLoss: null, profitabilityPercent: null,
                                 totalCost, assetsCount, issue: dashboardErrorMessage(marketError) }
                         }
-                    }),
-                )
-
-                const selectedId = getSelectedPortfolioId()
-                setPortfolioSummaries(summaries.sort((a, b) =>
-                    Number(b.portfolio.id === selectedId) - Number(a.portfolio.id === selectedId)))
-            } catch (error) {
-                console.error(
-                    'Erro ao buscar carteiras:',
-                    error,
-                )
-                setError(dashboardErrorMessage(error))
-            } finally {
+                        if (!active) return
+                        setPortfolioSummaries(current => current.map(item =>
+                            item.portfolio.id === portfolio.id ? result : item))
+                    }
+                }
+                void Promise.all(Array.from({ length: Math.min(3, ordered.length) }, () => worker()))
+            } catch (loadError) {
+                if (!active) return
+                console.error('Erro ao buscar carteiras:', loadError)
+                setError(dashboardErrorMessage(loadError))
                 setLoading(false)
             }
         }
-
-        loadPortfolios()
+        void loadPortfolios()
+        return () => { active = false }
     }, [])
 
     function handleViewPortfolio(portfolioId: number) {
@@ -143,13 +164,11 @@ function PortfoliosPage() {
                                                         : 'negative'
                                                 }
                                             >
-                                                {(summary.profitabilityPercent !== null && summary.profitabilityPercent >= 0)
-                                                    ? '+'
-                                                    : ''}
-                                                {formatPercent(
-                                                    summary.profitabilityPercent,
-                                                )}
-                                                {summary.profitabilityPercent === null ? '' : '%'}
+                                                {summary.valuationLoading ? 'Calculando...' : <>
+                                                    {(summary.profitabilityPercent !== null && summary.profitabilityPercent >= 0) ? '+' : ''}
+                                                    {formatPercent(summary.profitabilityPercent)}
+                                                    {summary.profitabilityPercent === null ? '' : '%'}
+                                                </>}
                                             </strong>
                                         </div>
                                     </div>
@@ -161,9 +180,7 @@ function PortfoliosPage() {
                                             </span>
 
                                             <strong>
-                                                {formatCurrency(
-                                                    summary.currentValue,
-                                                )}
+                                                {summary.valuationLoading ? 'Calculando...' : formatCurrency(summary.currentValue)}
                                             </strong>
                                         </div>
 
@@ -173,9 +190,7 @@ function PortfoliosPage() {
                                             </span>
 
                                             <strong>
-                                                {formatCurrency(
-                                                    summary.totalCost,
-                                                )}
+                                                {summary.valuationLoading ? 'Calculando...' : formatCurrency(summary.totalCost)}
                                             </strong>
                                         </div>
 
@@ -191,12 +206,10 @@ function PortfoliosPage() {
                                                         : 'negative'
                                                 }
                                             >
-                                                {(summary.profitLoss !== null && summary.profitLoss >= 0)
-                                                    ? '+'
-                                                    : ''}
-                                                {formatCurrency(
-                                                    summary.profitLoss,
-                                                )}
+                                                {summary.valuationLoading ? 'Calculando...' : <>
+                                                    {(summary.profitLoss !== null && summary.profitLoss >= 0) ? '+' : ''}
+                                                    {formatCurrency(summary.profitLoss)}
+                                                </>}
                                             </strong>
                                         </div>
 
@@ -206,7 +219,7 @@ function PortfoliosPage() {
                                             </span>
 
                                             <strong>
-                                                {summary.assetsCount ?? 'Indisponível'}
+                                                {summary.valuationLoading ? 'Calculando...' : summary.assetsCount ?? 'Indisponível'}
                                             </strong>
                                         </div>
                                     </div>

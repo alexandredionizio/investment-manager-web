@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import Header from '../components/Header'
 import ValuationDetails from '../components/ValuationDetails'
 import ValuationContractForm from '../components/ValuationContractForm'
@@ -92,6 +92,9 @@ function PortfolioDetailsPage() {
             <Header />
 
             <main className="dashboard-container">
+                <Link to="/portfolios" className="portfolio-back-link">
+                    <span aria-hidden="true">←</span> Voltar para Carteiras
+                </Link>
                 {error ? (<p role="alert">{error}</p>) : portfolio === null ? (
                     <p>Carregando carteira...</p>
                 ) : (

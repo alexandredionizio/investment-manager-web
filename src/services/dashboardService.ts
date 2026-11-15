@@ -55,6 +55,11 @@ export function dashboardErrorMessage(error: unknown): string {
             return 'Histórico de CDI ou Ibovespa incompleto no período solicitado. Comparação indisponível.'
         if ([502, 503, 504].includes(status ?? 0) && error.response?.data?.error === 'Falha na integração externa')
             return 'Dados de mercado temporariamente indisponíveis. Tente novamente mais tarde.'
+        if (status === 422 && error.response?.data?.error === 'Avaliação histórica indisponível') {
+            const reason = error.response?.data?.message
+            return typeof reason === 'string' && reason.length > 0 && reason.length <= 320
+                ? reason : 'Não há histórico confirmado suficiente para calcular a rentabilidade neste período.'
+        }
         if (status === 403) return 'Acesso não autorizado a estes dados.'
         if (status === 404 && error.response?.data?.status === 404
             && error.response?.data?.error === 'Cotação não suportada') {

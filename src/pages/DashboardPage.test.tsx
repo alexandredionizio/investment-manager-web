@@ -19,8 +19,11 @@ const portfolio = { id: 1, name: 'Principal', description: '', createdAt: '2026-
 const transaction = { id: 1, portfolioId: 1, assetId: 1, quantity: 100, type: 'BUY', transactionDate: '2026-09-20' }
 const position = { assetId: 1, assetTicker: 'ITUB4', quantity: 100, averagePrice: 10, totalCost: 1000,
     currentPrice: 10, currentValue: 1000, profitLoss: 0, profitabilityPercent: 0 }
-const point = { date: '2026-09-21', dailyReturn: 0, cumulativeReturn: 0 }
-const comparison = { date: '2026-09-21', portfolioReturn: 0, cdiReturn: null, ibovReturn: 0 }
+const recent = new Date()
+recent.setDate(recent.getDate() - 1)
+const recentIso = `${recent.getFullYear()}-${String(recent.getMonth() + 1).padStart(2, '0')}-${String(recent.getDate()).padStart(2, '0')}`
+const point = { date: recentIso, dailyReturn: 0, cumulativeReturn: 0 }
+const comparison = { date: recentIso, portfolioReturn: 0, cdiReturn: null, ibovReturn: 0 }
 let populated: boolean
 let override: (url: string, config?: AxiosRequestConfig) => unknown
 const unchanged = Symbol('default response')
@@ -44,7 +47,7 @@ beforeEach(() => {
         else if (url.startsWith('/expected-incomes/portfolio/')) data = []
         else if (url.endsWith('/realized-results')) data = []
         else if (url.endsWith('/returns')) data = { portfolioId: id, startDate: '2026-09-20', endDate: '2026-09-21', totalReturn: populated ? 0 : null, points: populated ? [point] : [] }
-        else if (url.endsWith('/history')) data = { portfolioId: id, period: config?.params.period, startDate: '2026-09-20', endDate: '2026-09-21', granularity: 'DAILY', points: populated ? [{ date: '2026-09-21', value: 1000 }] : [] }
+        else if (url.endsWith('/history')) data = { portfolioId: id, period: config?.params.period, startDate: '2026-09-20', endDate: '2026-09-21', granularity: 'DAILY', points: populated ? [{ date: recentIso, value: 1000 }] : [] }
         else if (url.endsWith('/benchmark-comparison')) data = populated ? [comparison] : []
         else throw new Error('Unexpected request: ' + url)
         return { data } as AxiosResponse
@@ -85,6 +88,43 @@ describe('IM-045: Dashboard da carteira importada', () => {
     })
 })
 
+describe('IM-063: coherent return cards', () => {
+    it('recovers the 1M card only from a complete confirmed 1M comparison series', async () => {
+        populated = true
+        const today = new Date()
+        const start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        start.setDate(Math.min(today.getDate(), new Date(today.getFullYear(), today.getMonth(), 0).getDate()))
+        const startIso = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`
+        override = (url, config) => {
+            if (url.endsWith('/returns') && config?.params?.period === 'ONE_MONTH') throw httpError(502)
+            if (url.endsWith('/benchmark-comparison')) return [
+                { date: startIso, portfolioReturn: 0, cdiReturn: null, ibovReturn: null },
+                { date: recentIso, portfolioReturn: 0.1047042827, cdiReturn: null, ibovReturn: null },
+            ]
+            return unchanged
+        }
+        open()
+        await ready()
+        await waitFor(() => expect(card('Último mês').textContent).toContain('+10,47%'))
+        expect(card('Último mês').textContent).toContain('Confirmada pela série da carteira')
+        expect(screen.queryByText(/Rentabilidade no mês:.*Dados de mercado temporariamente indisponíveis/)).toBeNull()
+    })
+
+    it('does not fabricate 1M from a comparison series starting late', async () => {
+        populated = true
+        override = (url, config) => {
+            if (url.endsWith('/returns') && config?.params?.period === 'ONE_MONTH') throw httpError(502)
+            if (url.endsWith('/benchmark-comparison')) return [
+                { date: recentIso, portfolioReturn: 0.1047042827, cdiReturn: null, ibovReturn: null },
+            ]
+            return unchanged
+        }
+        open()
+        await ready()
+        await waitFor(() => expect(card('Último mês').textContent).toContain('Indisponível'))
+    })
+})
+
 describe('Dashboard data availability', () => {
     it('shows incomplete benchmark history without hiding portfolio metrics or inventing returns', async () => {
         populated = true
@@ -94,7 +134,7 @@ describe('Dashboard data availability', () => {
         }
         open()
         await ready()
-        expect(await screen.findByText('Histórico de CDI ou Ibovespa incompleto no período solicitado. Comparação indisponível.')).toBeTruthy()
+        expect(await within(screen.getByRole('heading', { name: 'Rentabilidade ponderada' }).closest('section')!).findByText('Histórico de CDI ou Ibovespa incompleto no período solicitado. Comparação indisponível.')).toBeTruthy()
         expect(card('Patrimônio atual').textContent).toContain('1.000,00')
         expect(within(screen.getByRole('heading', { name: 'Rentabilidade ponderada' }).closest('section')!).queryByTestId('chart')).toBeNull()
     })
@@ -461,7 +501,7 @@ it('preserves valid valuation and full accounting without treating missing SOL a
 
 it('labels mixed CDI availability accurately and keeps gaps in chart data', async () => {
     populated = true
-    override = url => url.endsWith('/benchmark-comparison') ? [comparison, { ...comparison, date: '2026-09-22', cdiReturn: 0.001 }] : unchanged
+    override = url => url.endsWith('/benchmark-comparison') ? [comparison, { ...comparison, date: new Date().toLocaleDateString('en-CA'), cdiReturn: 0.001 }] : unchanged
     open()
     await ready()
     expect(screen.getByText(/CDI parcialmente disponível/)).toBeTruthy()
