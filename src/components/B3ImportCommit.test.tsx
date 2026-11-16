@@ -14,7 +14,7 @@ describe('B3ImportCommit', () => {
   it('nunca importa sem ato de confirmação', () => {
     const onCommit = vi.fn(async () => {})
     render(<B3ImportCommit reconciliation={ready} loading={false} error="" result={null} onCommit={onCommit} />)
-    const button = screen.getByRole('button', { name: /importar definitivamente/i }) as HTMLButtonElement
+    const button = screen.getByRole('button', { name: /importar operações elegíveis/i }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
     fireEvent.click(button)
     expect(onCommit).not.toHaveBeenCalled()
@@ -29,18 +29,22 @@ describe('B3ImportCommit', () => {
       loading={false} error="" result={null} onCommit={onCommit} />
     const { rerender } = render(view(1))
     fireEvent.click(screen.getByRole('checkbox'))
-    expect((screen.getByRole('button', { name: /importar definitivamente/i }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole('button', { name: /importar operações elegíveis/i }) as HTMLButtonElement).disabled).toBe(false)
     rerender(view(2))
     expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false)
-    expect((screen.getByRole('button', { name: /importar definitivamente/i }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: /importar operações elegíveis/i }) as HTMLButtonElement).disabled).toBe(true)
     expect(onCommit).not.toHaveBeenCalled()
   })
-  it('bloqueia lote em revisão', () => {
+  it('IM-064: permite confirmação parcial, mas nunca grava sem aceite expresso', () => {
     const onCommit = vi.fn(async () => {})
     render(<B3ImportCommit reconciliation={{ ...ready, readyRows: 1, reviewRows: 1 }} loading={false} error="" result={null} onCommit={onCommit} />)
-    expect(screen.queryByRole('button', { name: /importar definitivamente/i })).toBeNull()
-    expect(screen.getByText(/importação está bloqueada/i)).toBeTruthy()
-    expect(onCommit).not.toHaveBeenCalled()
+    const button = screen.getByRole('button', { name: /importar operações elegíveis/i }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(screen.getByText(/operações pré-analisadas como aptas/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(button.disabled).toBe(false)
+    fireEvent.click(button)
+    expect(onCommit).toHaveBeenCalledTimes(1)
   })
   it('apresenta os dados do lote persistido sem novo botão de gravação', () => {
     render(<B3ImportCommit reconciliation={null} loading={false} error="" result={{
@@ -48,7 +52,7 @@ describe('B3ImportCommit', () => {
       rows: [{ excelRow: 2, transactionId: 80 }, { excelRow: 3, transactionId: 81 }],
     }} onCommit={vi.fn()} />)
     expect(screen.getByText(/Importação concluída/i)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /importar definitivamente/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /importar operações elegíveis/i })).toBeNull()
     expect(screen.getByRole('link', { name: 'Ver posições da carteira' }).getAttribute('href')).toBe('/portfolios/6')
     expect(screen.getByRole('link', { name: 'Ver indicadores' }).getAttribute('href')).toBe('/dashboard')
     expect(screen.getByRole('status').textContent).not.toMatch(/Lote #|Carteira #|banco de dados de testes/)
@@ -85,15 +89,15 @@ describe('B3ImportCommit', () => {
     }} onCommit={onCommit} />)
     expect(screen.getByText(/Este lote já havia sido importado/i)).toBeTruthy()
     expect(screen.getByText(/Nenhuma operação adicional foi registrada/i)).toBeTruthy()
-    expect(screen.getByText(/2 operações vinculadas/i)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /importar definitivamente/i })).toBeNull()
+    expect(screen.getByText(/2 operações já vinculadas/i)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /importar operações elegíveis/i })).toBeNull()
     expect(screen.getByRole('status').textContent).not.toMatch(/91|80|81|Carteira #|Lote #/)
     expect(onCommit).not.toHaveBeenCalled()
   })
   it('resumo pré-confirmação não expõe IDs nem chama ambiente de produção de testes', () => {
     render(<B3ImportCommit reconciliation={ready} loading={false} error="" result={null} onCommit={vi.fn()} />)
     expect(screen.getByText(/2 operações/, { selector: 'strong' })).toBeTruthy()
-    expect(screen.getByText(/registra compras e vendas na carteira selecionada/i)).toBeTruthy()
+    expect(screen.getByText(/confirmação registra compras e vendas na carteira selecionada/i)).toBeTruthy()
     expect(screen.queryByText(/banco de dados de testes|Carteira #6|IM-042/i)).toBeNull()
   })
 })

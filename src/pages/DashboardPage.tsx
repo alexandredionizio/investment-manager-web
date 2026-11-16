@@ -19,7 +19,7 @@ import Header from '../components/Header'
 import api from '../services/api'
 import { getXirrPreview } from '../services/xirrPreviewService'
 import { XirrPreviewCard } from '../components/XirrPreviewCard'
-import ValuationDetails from '../components/ValuationDetails'
+import { AssetClassFilter } from '../components/AssetClassFilter'
 import { DashboardIssuesSummary } from '../components/DashboardIssuesSummary'
 import { summarizeValuations, benchmarkAvailability } from '../services/valuation'
 
@@ -169,6 +169,7 @@ function DashboardPage() {
         setSelectedPortfolioId(portfolioId)
         saveSelectedPortfolioId(portfolioId)
         setPositions([])
+
         setIncomes([])
         setExpectedIncomes([])
         setExpectedStatus('loading')
@@ -276,6 +277,7 @@ function DashboardPage() {
                 } else {
                     setSelectedPortfolioId(null)
                     setPositions([])
+
                     setIncomes([])
                     setRealizedResults([])
                     setPortfolioHistory(null)
@@ -700,16 +702,6 @@ function DashboardPage() {
                 currency: 'BRL',
                 notation: 'compact',
                 maximumFractionDigits: 1,
-            },
-        ).format(value)
-    }
-
-    function formatNumber(value: number) {
-
-        return new Intl.NumberFormat(
-            'pt-BR',
-            {
-                maximumFractionDigits: 8,
             },
         ).format(value)
     }
@@ -1612,171 +1604,7 @@ function DashboardPage() {
 
                             ) : (
 
-                                <div className="positions-grid">
-
-                                    {positions.map(
-                                        (position) => {
-
-                                            const isPositive =
-                                                position.profitLoss !== null && position.profitLoss >= 0
-
-                                            return (
-
-                                                <article
-                                                    className="position-card"
-                                                    key={
-                                                        position.assetId
-                                                    }
-                                                >
-
-                                                    <div className="position-card-header">
-
-                                                        <div>
-
-                                                            <span className="position-label">
-                                                                Ativo
-                                                            </span>
-
-                                                            <h3>
-                                                                {
-                                                                    position.assetTicker
-                                                                }
-                                                            </h3>
-
-                                                        </div>
-
-                                                        <div
-                                                            className={
-                                                                position.profitLoss === null ? 'position-profit' : isPositive
-                                                                    ? 'position-profit positive'
-                                                                    : 'position-profit negative'
-                                                            }
-                                                        >
-
-                                                            <span>
-                                                                Rentabilidade
-                                                            </span>
-
-                                                            <strong>
-                                                                {isPositive
-                                                                    ? '+'
-                                                                    : ''}
-
-                                                                {formatPercentage(
-                                                                    position.profitabilityPercent,
-                                                                )}
-                                                                {position.profitabilityPercent === null ? '' : '%'}
-                                                            </strong>
-
-                                                        </div>
-
-                                                    </div>
-
-                                                    <ValuationDetails position={position} />
-                                                    <div className="position-metrics">
-
-                                                        <div className="position-metric">
-
-                                                            <span>
-                                                                Quantidade
-                                                            </span>
-
-                                                            <strong>
-                                                                {formatNumber(
-                                                                    position.quantity,
-                                                                )}
-                                                            </strong>
-
-                                                        </div>
-
-                                                        <div className="position-metric">
-
-                                                            <span>
-                                                                Preço médio
-                                                            </span>
-
-                                                            <strong>
-                                                                {formatCurrency(
-                                                                    position.averagePrice,
-                                                                )}
-                                                            </strong>
-
-                                                        </div>
-
-                                                        <div className="position-metric">
-
-                                                            <span>
-                                                                Preço atual
-                                                            </span>
-
-                                                            <strong>
-                                                                {formatCurrency(
-                                                                    position.currentPrice,
-                                                                )}
-                                                            </strong>
-
-                                                        </div>
-
-                                                        <div className="position-metric">
-
-                                                            <span>
-                                                                Custo total
-                                                            </span>
-
-                                                            <strong>
-                                                                {formatCurrency(
-                                                                    position.totalCost,
-                                                                )}
-                                                            </strong>
-
-                                                        </div>
-
-                                                        <div className="position-metric">
-
-                                                            <span>
-                                                                Valor atual
-                                                            </span>
-
-                                                            <strong>
-                                                                {formatCurrency(
-                                                                    position.currentValue,
-                                                                )}
-                                                            </strong>
-
-                                                        </div>
-
-                                                        <div className="position-metric">
-
-                                                            <span>
-                                                                Resultado
-                                                            </span>
-
-                                                            <strong
-                                                                className={
-                                                                    position.profitLoss === null ? '' : isPositive
-                                                                        ? 'positive'
-                                                                        : 'negative'
-                                                                }
-                                                            >
-                                                                {isPositive
-                                                                    ? '+'
-                                                                    : ''}
-
-                                                                {formatCurrency(
-                                                                    position.profitLoss,
-                                                                )}
-                                                            </strong>
-
-                                                        </div>
-
-                                                    </div>
-
-                                                </article>
-                                            )
-                                        },
-                                    )}
-
-                                </div>
+                                <AssetClassFilter portfolioId={selectedPortfolioId ?? undefined} positions={positions} />
                             )}
 
                         </section>

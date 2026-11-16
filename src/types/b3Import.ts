@@ -101,18 +101,20 @@ export type B3ReconciliationResponse = {
 
 /** IM-042: retorno persistido do lote de importação. */
 export type B3ImportCommitResponse = {
-  batchId: number
+  batchId: number | null
   portfolioId: number
-  status: 'IMPORTED' | 'ALREADY_IMPORTED'
+  status: 'IMPORTED' | 'ALREADY_IMPORTED' | 'PARTIALLY_IMPORTED' | 'NO_ELIGIBLE_ROWS'
   importedRows: number
+  rejectedRows?: number
   rows: Array<{ excelRow: number; transactionId: number }>
 }
 
-/** Tentativas explicitamente confirmadas, porém rejeitadas; nunca geram transações. */
+/** Pendências auditadas, inclusive quando outras linhas do arquivo foram importadas. */
 export type B3RejectedAttempt = {
   id: number
   fileName: string
   rejectedAt: string
   reason: string
-  rows: Array<{ excelRow: number; reason: string }>
+  resolutionStatus?: 'OPEN' | 'RESOLVED'
+  rows: Array<{ excelRow: number; reason: string; ticker?: string | null; resolutionStatus?: 'OPEN' | 'RESOLVED' }>
 }

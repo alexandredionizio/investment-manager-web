@@ -25,7 +25,7 @@ describe('B3ImportPreview', () => {
     expect(screen.queryByText('PETR4')).toBeNull()
     expect(screen.getByText('ITUB4')).toBeTruthy()
     expect(screen.getByText('Erro: Data inválida')).toBeTruthy()
-    expect(screen.getByText(/Após conferir os dados, faça a correspondência de instituições e ativos/)).toBeTruthy()
+    expect(screen.getByText(/Após conferir os dados, selecione a carteira e execute a conferência/)).toBeTruthy()
     expect(screen.getByText(/Nenhuma operação é registrada sem confirmação explícita/)).toBeTruthy()
     expect(screen.queryByText(/serão implementadas em etapas posteriores/)).toBeNull()
   })

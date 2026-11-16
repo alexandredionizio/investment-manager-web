@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Header from '../components/Header'
-import ValuationDetails from '../components/ValuationDetails'
 import ValuationContractForm from '../components/ValuationContractForm'
+import { AssetClassFilter } from '../components/AssetClassFilter'
 import { summarizeValuations } from '../services/valuation'
 import { findPortfolioById } from '../services/portfolioService'
 import { findMarketPositions, findPositions } from '../services/positionService'
@@ -73,14 +73,6 @@ function PortfolioDetailsPage() {
         })
     }
 
-    function formatPercent(value: number | null) {
-        if (value === null) return 'Indisponível'
-        return `${value.toLocaleString('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        })}%`
-    }
-
     function formatQuantity(value: number) {
         return value.toLocaleString('pt-BR', {
             maximumFractionDigits: 8,
@@ -115,148 +107,27 @@ function PortfolioDetailsPage() {
                                 <p>Preço atual, valor de mercado e rentabilidade: indisponíveis.</p>
                                 {accounting === null ? <p>Dados contábeis indisponíveis.</p> : accounting.length === 0
                                     ? <p>Nenhuma posição contábil encontrada.</p>
-                                    : accounting.map(position => <article key={position.assetId} className="position-card">
-                                        <h3>{position.assetTicker}</h3>
-                                        <p>Quantidade: {formatQuantity(position.quantity)}</p>
-                                        <p>Preço médio: {formatCurrency(position.averagePrice)}</p>
-                                        <p>Custo total: {formatCurrency(position.totalCost)}</p>
-                                    </article>)}
+                                    : <div className="asset-class-scroll">
+                                        <table className="asset-class-table">
+                                            <thead><tr><th>Ativo</th><th>Quantidade</th><th>Preço médio</th><th>Custo total</th></tr></thead>
+                                            <tbody>{accounting.map(position => <tr key={position.assetId} className="asset-class-position">
+                                                <th scope="row">{position.assetTicker}</th>
+                                                <td>{formatQuantity(position.quantity)}</td>
+                                                <td>{formatCurrency(position.averagePrice)}</td>
+                                                <td>{formatCurrency(position.totalCost)}</td>
+                                            </tr>)}</tbody>
+                                        </table>
+                                    </div>}
                             </> : positions.length === 0 ? (
                                 <p>Nenhuma posição encontrada.</p>
                             ) : (
-                                <div className="positions-grid">
-                                    {positions.map((position) => {
-                                        const isPositive =
-                                            position.profitLoss !== null && position.profitLoss >= 0
-
-                                        return (
-                                            <article
-                                                key={position.assetId}
-                                                className="position-card"
-                                            >
-                                                <div className="position-card-header">
-                                                    <div>
-                                                        <span className="position-label">
-                                                            Ativo
-                                                        </span>
-
-                                                        <h3>
-                                                            {position.assetTicker}
-                                                        </h3>
-                                                    </div>
-
-                                                    <div className="position-profit">
-                                                        <span>
-                                                            Rentabilidade
-                                                        </span>
-
-                                                        <strong
-                                                            className={
-                                                                position.profitLoss === null ? '' : isPositive
-                                                                    ? 'positive'
-                                                                    : 'negative'
-                                                            }
-                                                        >
-                                                            {isPositive
-                                                                ? '+'
-                                                                : ''}
-                                                            {formatPercent(
-                                                                position.profitabilityPercent,
-                                                            )}
-                                                        </strong>
-                                                    </div>
-                                                </div>
-
-                                                <ValuationDetails position={position} />
-                                                {(position.assetType === 'FIXED_INCOME' || position.assetType === 'TREASURE') && <ValuationContractForm
-                                                    portfolioId={Number(id)} assetId={position.assetId} assetType={position.assetType}
-                                                    onSaved={async () => setPositions(await findMarketPositions(Number(id)))} />}
-                                                <div className="position-metrics">
-                                                    <div className="position-metric">
-                                                        <span>
-                                                            Quantidade
-                                                        </span>
-
-                                                        <strong>
-                                                            {formatQuantity(
-                                                                position.quantity,
-                                                            )}
-                                                        </strong>
-                                                    </div>
-
-                                                    <div className="position-metric">
-                                                        <span>
-                                                            Preço médio
-                                                        </span>
-
-                                                        <strong>
-                                                            {formatCurrency(
-                                                                position.averagePrice,
-                                                            )}
-                                                        </strong>
-                                                    </div>
-
-                                                    <div className="position-metric">
-                                                        <span>
-                                                            Preço atual
-                                                        </span>
-
-                                                        <strong>
-                                                            {formatCurrency(
-                                                                position.currentPrice,
-                                                            )}
-                                                        </strong>
-                                                    </div>
-
-                                                    <div className="position-metric">
-                                                        <span>
-                                                            Custo total
-                                                        </span>
-
-                                                        <strong>
-                                                            {formatCurrency(
-                                                                position.totalCost,
-                                                            )}
-                                                        </strong>
-                                                    </div>
-
-                                                    <div className="position-metric">
-                                                        <span>
-                                                            Valor atual
-                                                        </span>
-
-                                                        <strong>
-                                                            {formatCurrency(
-                                                                position.currentValue,
-                                                            )}
-                                                        </strong>
-                                                    </div>
-
-                                                    <div className="position-metric">
-                                                        <span>
-                                                            Resultado
-                                                        </span>
-
-                                                        <strong
-                                                            className={
-                                                                position.profitLoss === null ? '' : isPositive
-                                                                    ? 'positive'
-                                                                    : 'negative'
-                                                            }
-                                                        >
-                                                            {isPositive
-                                                                ? '+'
-                                                                : ''}
-                                                            {formatCurrency(
-                                                                position.profitLoss,
-                                                            )}
-                                                        </strong>
-                                                    </div>
-                                                </div>
-                                            </article>
-                                        )
-                                    })}
-                                </div>
+                                <AssetClassFilter
+                                    positions={positions}
+                                    portfolioId={Number(id)}
+                                    renderAssetDetails={position => <ValuationContractForm
+                                        portfolioId={Number(id)} assetId={position.assetId} assetType={position.assetType!}
+                                        onSaved={async () => setPositions(await findMarketPositions(Number(id)))} />}
+                                />
                             )}
                         </section>
                     </>

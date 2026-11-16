@@ -1,0 +1,30 @@
+/* Compact, shared positions display for Dashboard and Portfolio. */
+.asset-class-filter { margin: 1rem 0; border: 1px solid #d6e0ee; border-radius: 12px; padding: 1rem; background: #f8fafd; color: #102a4c; }
+.asset-class-filter-top { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:.75rem; }
+.asset-class-filter-top p, .asset-class-note { font-size:.87rem; margin:.28rem 0; color:#526783; }
+.asset-class-filter-top button { border:1px solid #bdcde2; color:#183c6a; background:white; padding:.45rem .8rem; border-radius:8px; cursor:pointer; }
+.asset-class-filter-top button:hover, .asset-class-filter-top button:focus-visible { background:#fff; color:#183c6a; border-color:#315f9a; }
+.asset-class-scroll { width:100%; overflow-x:auto; }
+.asset-class-table { border-collapse:collapse; width:100%; min-width:1100px; font-size:.87rem; font-variant-numeric:tabular-nums; }
+.asset-class-table th, .asset-class-table td { padding:.85rem .7rem; border-bottom:1px solid #e0e7f0; text-align:right; white-space:nowrap; }
+.asset-class-table thead { background:#edf2f8; font-size:.76rem; color:#526783; }
+.asset-class-table thead th:first-child, .asset-class-table tbody th { text-align:left; }
+.asset-class-summary { background:#eaf0f8; color:#17375e; font-weight:600; }
+.asset-class-summary th, .asset-class-summary td { border-top:1px solid #d8e2ef; }
+.asset-class-position { background:#fff; }
+.asset-class-position:hover, .asset-class-position:focus-within { background:#fff; }
+.asset-class-toggle { width:100%; display:flex; gap:.6rem; align-items:center; cursor:pointer; border:0; background:transparent; padding:.25rem .1rem; color:#17375e; font:inherit; font-weight:700; text-align:left; }
+/* Keep link/row hover white, consistent on both screens. */
+.asset-class-toggle:hover, .asset-class-toggle:focus-visible, .asset-class-summary:hover, .asset-class-summary:focus-within { background:#fff; color:#17375e; }
+.asset-class-toggle span { font-size:1.25rem; min-width:1rem; }
+.asset-class-ticker { padding-left:2.1rem !important; }
+.asset-class-contract { white-space:normal; margin-top:.5rem; min-width:300px; }
+.asset-class-position .positive { color:#00824b; font-weight:600; }
+.asset-class-position .negative { color:#b42335; font-weight:600; }
+
+.asset-class-controls { display:flex; align-items:center; flex-wrap:wrap; gap:.65rem; }
+.asset-class-controls label { font-size:.8rem; color:#526783; }
+.asset-class-controls select { border:1px solid #bdcde2; border-radius:8px; background:#fff; color:#17375e; padding:.4rem .6rem; }
+.asset-class-summary .positive { color:#00824b; }
+.asset-class-summary .negative { color:#b42335; }
+.asset-class-controls select:hover, .asset-class-controls select:focus-visible { background:#fff; }

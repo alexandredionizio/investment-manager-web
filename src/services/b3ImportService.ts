@@ -98,7 +98,7 @@ export async function commitB3Spreadsheet(
   const formData = new FormData()
   formData.append('file', file)
   const { data } = await api.post<import('../types/b3Import').B3ImportCommitResponse>(
-    b3Endpoint(api, 'commit'), formData, { params: { portfolioId, confirmed: true } },
+    b3Endpoint(api, 'commit-partial'), formData, { params: { portfolioId, confirmed: true } },
   )
   return data
 }
@@ -112,4 +112,32 @@ export async function listB3RejectedAttempts(
     b3Endpoint(api, 'rejected-attempts'), { params: { portfolioId } },
   )
   return data
+}
+
+/** IM-064: cadastra automaticamente identidades confirmadas, antes da conciliação financeira. */
+export async function autoRegisterB3Spreadsheet(
+  api: Pick<AxiosInstance, 'post' | 'defaults'>, file: File, portfolioId: number, offset: number,
+): Promise<{ nextOffset: number; totalTickers: number; createdAssets: number; createdBrokers: number; reusedAssets: number; reusedBrokers: number; unresolvedTickers: string[]; totalRows: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await api.post(b3Endpoint(api, 'auto-register'), formData, { params: { portfolioId, offset } })
+  return data
+}
+
+/** Arquiva o apontamento após conferência humana; não exclui a evidência. */
+export async function resolveB3RejectedAttempt(
+  api: Pick<AxiosInstance, 'post' | 'defaults'>,
+  portfolioId: number, attemptId: number, note: string,
+): Promise<void> {
+  await api.post(b3Endpoint(api, `rejected-attempts/${attemptId}/resolve`),
+    { note, confirmed: true }, { params: { portfolioId } })
+}
+
+/** Arquiva somente UMA linha rejeitada; preserva as demais abertas e toda a trilha de auditoria. */
+export async function resolveB3RejectedRow(
+  api: Pick<AxiosInstance, 'post' | 'defaults'>,
+  portfolioId: number, attemptId: number, excelRow: number, note: string,
+): Promise<void> {
+  await api.post(b3Endpoint(api, `rejected-attempts/${attemptId}/rows/${excelRow}/resolve`),
+    { note, confirmed: true }, { params: { portfolioId } })
 }
