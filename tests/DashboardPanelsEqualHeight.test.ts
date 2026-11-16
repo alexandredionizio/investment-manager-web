@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 
-const dashboard = readFileSync(new URL('../src/pages/DashboardPage.tsx', import.meta.url), 'utf8')
-const css = readFileSync(new URL('../src/pages/dashboard-panels-grid.css', import.meta.url), 'utf8')
+const dashboard = readFileSync('src/pages/DashboardPage.tsx', 'utf8')
+const css = readFileSync('src/pages/dashboard-panels-grid.css', 'utf8')
 
 describe('IM-066: gráficos com alturas alinhadas', () => {
   it('mantém os dois painéis no mesmo grid, antes das posições', () => {

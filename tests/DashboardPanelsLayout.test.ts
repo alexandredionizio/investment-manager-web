@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 
 // Verificação pontual estrutural. Conferência visual em desktop/mobile continua necessária.
-const dashboard = readFileSync(new URL('../src/pages/DashboardPage.tsx', import.meta.url), 'utf8')
-const css = readFileSync(new URL('../src/pages/dashboard-panels-grid.css', import.meta.url), 'utf8')
+const dashboard = readFileSync('src/pages/DashboardPage.tsx', 'utf8')
+const css = readFileSync('src/pages/dashboard-panels-grid.css', 'utf8')
 
 describe('IM-066: dois painéis do Dashboard', () => {
   it('agrupa exatamente os dois gráficos antes da seção de posições', () => {
