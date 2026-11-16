@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import B3RejectedAttemptHistory from './B3RejectedAttemptHistory'
-import { listB3RejectedAttempts, resolveB3RejectedAttempt, resolveB3RejectedRow } from '../services/b3ImportService'
+import { listB3RejectedAttempts, resolveB3RejectedRow } from '../services/b3ImportService'
 
 vi.mock('../services/b3ImportService', () => ({ listB3RejectedAttempts: vi.fn(), resolveB3RejectedAttempt: vi.fn(), resolveB3RejectedRow: vi.fn() }))
 afterEach(() => { cleanup(); vi.clearAllMocks() })

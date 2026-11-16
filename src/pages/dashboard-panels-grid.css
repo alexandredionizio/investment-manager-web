@@ -1,0 +1,82 @@
+/* IM-066: cards alinhados sem alterar a estrutura e os dados do Dashboard. */
+.dashboard-charts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 20px;
+}
+
+.dashboard-charts-grid > .dashboard-card {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.dashboard-monthly-disclosure {
+  margin: 0 0 20px;
+  min-width: 0;
+}
+.dashboard-monthly-disclosure > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #173e6d;
+  padding: 2px 0;
+}
+.dashboard-monthly-disclosure > summary:hover { background: #fff; }
+.dashboard-monthly-disclosure[open] > summary { margin-bottom: 16px; }
+.dashboard-monthly-disclosure .dashboard-return-table-section { margin-top: 0; }
+
+/* Duas colunas somente se ambos os gráficos tiverem largura confortável. */
+@media (min-width: 1480px) {
+  .dashboard-charts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+  .dashboard-charts-grid > .dashboard-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .dashboard-charts-grid .dashboard-return-controls,
+  .dashboard-charts-grid .dashboard-history-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .dashboard-charts-grid .dashboard-return-header,
+  .dashboard-charts-grid .dashboard-history-header { margin-bottom: 16px; }
+  .dashboard-charts-grid .dashboard-return-header p {
+    flex: 0 0 auto;
+    max-width: none;
+  }
+  .dashboard-charts-grid .dashboard-return-periods,
+  .dashboard-charts-grid .dashboard-history-periods {
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .dashboard-charts-grid .dashboard-return-chart {
+    min-width: 0;
+    min-height: 300px;
+    height: 300px;
+    flex: 1 1 300px;
+  }
+  .dashboard-charts-grid .dashboard-return-chart--unavailable {
+    min-height: 120px;
+    height: auto;
+  }
+  .dashboard-charts-grid .dashboard-history-chart {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+  .dashboard-charts-grid .dashboard-history-plot {
+    min-height: 300px;
+    height: 300px;
+    flex: 1 1 300px;
+  }
+}

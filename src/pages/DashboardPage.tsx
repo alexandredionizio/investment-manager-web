@@ -1,4 +1,5 @@
 import { PageHeading } from '../components/ui/PageHeading'
+import './dashboard-panels-grid.css'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createPortfolio, renamePortfolio, deletePortfolio } from '../services/portfolioService'
@@ -1026,6 +1027,7 @@ function DashboardPage() {
 
                         </div>
 
+                        <div className="dashboard-charts-grid" aria-label="Gráficos de desempenho da carteira">
                         <section className="dashboard-card dashboard-return-section">
 
                             <div className="dashboard-return-header">
@@ -1281,92 +1283,6 @@ function DashboardPage() {
                                 )}
                             </div>
 
-                            <div className="dashboard-return-table-section">
-
-                                <div className="dashboard-return-table-heading">
-                                    <h3>Rentabilidade mensal</h3>
-                                    <p>
-                                        Retornos compostos por mês, no ano e acumulados desde o início da carteira.
-                                    </p>
-                                </div>
-
-                                {pendingSections.total ? <p role="status">Carregando rentabilidade mensal...</p> : issues.total ? (<p role="alert">{issues.total}</p>) : monthlyReturnRows.length === 0 ? (
-                                    <div className="dashboard-history-message">
-                                        Nenhuma rentabilidade mensal disponível.
-                                    </div>
-                                ) : (
-                                    <div className="dashboard-return-table-wrapper">
-                                        <table className="dashboard-return-table">
-                                            <thead>
-                                            <tr>
-                                                <th>Ano</th>
-                                                {monthLabels.map((month) => (
-                                                    <th key={month}>{month}</th>
-                                                ))}
-                                                <th>No ano</th>
-                                                <th>Acumulado</th>
-                                            </tr>
-                                            </thead>
-
-                                            <tbody>
-                                            {monthlyReturnRows.map((row) => (
-                                                <tr key={row.year}>
-                                                    <td className="dashboard-return-year">
-                                                        {row.year}
-                                                    </td>
-
-                                                    {row.months.map((monthReturn, index) => (
-                                                        <td key={`${row.year}-${index}`}>
-                                                            {monthReturn === null ? (
-                                                                <span className="dashboard-return-empty">—</span>
-                                                            ) : (
-                                                                <span
-                                                                    className={
-                                                                        monthReturn >= 0
-                                                                            ? 'positive'
-                                                                            : 'negative'
-                                                                    }
-                                                                >
-                                                                        {monthReturn >= 0 ? '+' : ''}
-                                                                    {formatPercentage(monthReturn * 100)}%
-                                                                    </span>
-                                                            )}
-                                                        </td>
-                                                    ))}
-
-                                                    <td>
-                                                        <strong
-                                                            className={
-                                                                row.annualReturn >= 0
-                                                                    ? 'positive'
-                                                                    : 'negative'
-                                                            }
-                                                        >
-                                                            {row.annualReturn >= 0 ? '+' : ''}
-                                                            {formatPercentage(row.annualReturn * 100)}%
-                                                        </strong>
-                                                    </td>
-
-                                                    <td>
-                                                        <strong
-                                                            className={
-                                                                row.accumulatedReturn >= 0
-                                                                    ? 'positive'
-                                                                    : 'negative'
-                                                            }
-                                                        >
-                                                            {row.accumulatedReturn >= 0 ? '+' : ''}
-                                                            {formatPercentage(row.accumulatedReturn * 100)}%
-                                                        </strong>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-
-                            </div>
 
                         </section>
 
@@ -1573,6 +1489,98 @@ function DashboardPage() {
                             )}
 
                         </section>
+
+                        </div>
+
+                        <details className="dashboard-monthly-disclosure dashboard-card">
+                            <summary>Rentabilidade mensal — visualizar histórico detalhado</summary>
+                            <div className="dashboard-return-table-section">
+
+                                <div className="dashboard-return-table-heading">
+                                    <h3>Rentabilidade mensal</h3>
+                                    <p>
+                                        Retornos compostos por mês, no ano e acumulados desde o início da carteira.
+                                    </p>
+                                </div>
+
+                                {pendingSections.total ? <p role="status">Carregando rentabilidade mensal...</p> : issues.total ? (<p role="alert">{issues.total}</p>) : monthlyReturnRows.length === 0 ? (
+                                    <div className="dashboard-history-message">
+                                        Nenhuma rentabilidade mensal disponível.
+                                    </div>
+                                ) : (
+                                    <div className="dashboard-return-table-wrapper">
+                                        <table className="dashboard-return-table">
+                                            <thead>
+                                            <tr>
+                                                <th>Ano</th>
+                                                {monthLabels.map((month) => (
+                                                    <th key={month}>{month}</th>
+                                                ))}
+                                                <th>No ano</th>
+                                                <th>Acumulado</th>
+                                            </tr>
+                                            </thead>
+
+                                            <tbody>
+                                            {monthlyReturnRows.map((row) => (
+                                                <tr key={row.year}>
+                                                    <td className="dashboard-return-year">
+                                                        {row.year}
+                                                    </td>
+
+                                                    {row.months.map((monthReturn, index) => (
+                                                        <td key={`${row.year}-${index}`}>
+                                                            {monthReturn === null ? (
+                                                                <span className="dashboard-return-empty">—</span>
+                                                            ) : (
+                                                                <span
+                                                                    className={
+                                                                        monthReturn >= 0
+                                                                            ? 'positive'
+                                                                            : 'negative'
+                                                                    }
+                                                                >
+                                                                        {monthReturn >= 0 ? '+' : ''}
+                                                                    {formatPercentage(monthReturn * 100)}%
+                                                                    </span>
+                                                            )}
+                                                        </td>
+                                                    ))}
+
+                                                    <td>
+                                                        <strong
+                                                            className={
+                                                                row.annualReturn >= 0
+                                                                    ? 'positive'
+                                                                    : 'negative'
+                                                            }
+                                                        >
+                                                            {row.annualReturn >= 0 ? '+' : ''}
+                                                            {formatPercentage(row.annualReturn * 100)}%
+                                                        </strong>
+                                                    </td>
+
+                                                    <td>
+                                                        <strong
+                                                            className={
+                                                                row.accumulatedReturn >= 0
+                                                                    ? 'positive'
+                                                                    : 'negative'
+                                                            }
+                                                        >
+                                                            {row.accumulatedReturn >= 0 ? '+' : ''}
+                                                            {formatPercentage(row.accumulatedReturn * 100)}%
+                                                        </strong>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+
+                            </div>
+                        </details>
 
                         <section className="dashboard-card dashboard-positions-section">
 
