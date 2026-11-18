@@ -28,3 +28,11 @@
 .asset-class-summary .positive { color:#00824b; }
 .asset-class-summary .negative { color:#b42335; }
 .asset-class-controls select:hover, .asset-class-controls select:focus-visible { background:#fff; }
+.asset-class-unavailable-reason {
+  display: block;
+  max-width: 240px;
+  margin-top: 4px;
+  white-space: normal;
+  font-weight: 400;
+  color: var(--im-muted, #5d7088);
+}

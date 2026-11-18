@@ -17,3 +17,8 @@
 
 /* Ajuda de upload padronizada nas três abas de importação. */
 .b3-import-file-help { margin: .35rem 0 .7rem; font-size: .85rem; color: #526785; }
+.b3-income-ignored summary { cursor: pointer; font-weight: 600; padding: .6rem 0; }
+.b3-income-table-scroll { max-height: 24rem; overflow: auto; margin: .75rem 0; }
+.b3-income-table-scroll:focus-visible { outline: 2px solid #225da2; outline-offset: 2px; }
+.b3-income-table-scroll th { position: sticky; top: 0; background: #eaf0f8; z-index: 1; }
+.b3-income-selection-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: .75rem 0; }

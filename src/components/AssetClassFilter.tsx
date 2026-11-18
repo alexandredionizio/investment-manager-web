@@ -174,6 +174,9 @@ export function AssetClassFilter({ positions, portfolioId, renderAssetDetails }:
                     <tr key={position.assetId} className="asset-class-position">
                       <th scope="row" className="asset-class-ticker">
                         <strong>{position.assetTicker}</strong>
+                        {position.valuationStatus === 'UNAVAILABLE' && position.reason && (
+                          <small className="asset-class-unavailable-reason">{position.reason}</small>
+                        )}
                         {renderAssetDetails && (position.assetType === 'FIXED_INCOME' || position.assetType === 'TREASURE') && <div className="asset-class-contract">{renderAssetDetails(position)}</div>}
                       </th>
                       <td>{qty(position.quantity)}</td>

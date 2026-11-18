@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import api from '../services/api'
 import PortfoliosPage from './PortfoliosPage'
@@ -65,7 +65,11 @@ it('keeps accounting positions in detail without invented market values', async 
     expect((await screen.findByRole('alert')).textContent).toContain('Dados de mercado temporariamente indisponíveis')
     expect(screen.getByText('Minha carteira')).toBeTruthy()
     expect(screen.getByText('TEST11')).toBeTruthy()
-    expect(screen.getByText(/Custo total:.*100,00/)).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: 'Custo total' })).toBeTruthy()
+    const cells = within(screen.getByRole('row', { name: /TEST11/ })).getAllByRole('cell')
+    expect(cells[0].textContent).toBe('10')
+    expect(cells[1].textContent).toMatch(/R\$\s*10,00/)
+    expect(cells[2].textContent).toMatch(/R\$\s*100,00/)
     expect(screen.queryByText('Nenhuma posição encontrada.')).toBeNull()
     expect(screen.queryByText('0%')).toBeNull()
 })

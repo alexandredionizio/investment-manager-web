@@ -1,5 +1,7 @@
 import '../pages/B3ImportPage.css'
 import { useRef, useState } from 'react'
+import { isAxiosError } from 'axios'
+import { userFacingApiMessage } from '../utils/userFacingApiMessage'
 import type { ChangeEvent, FormEvent } from 'react'
 import { previewB3Incomes, reconcileB3Incomes, commitB3Incomes } from '../services/b3IncomeService'
 import { findAllPortfolios } from '../services/portfolioService'
@@ -22,6 +24,8 @@ export default function B3IncomePreview() {
   const [accepted, setAccepted] = useState(false)
   const [committing, setCommitting] = useState(false)
   const [committed, setCommitted] = useState<B3IncomeCommitResponse | null>(null)
+  const [commitError, setCommitError] = useState('')
+  const [refreshWarning, setRefreshWarning] = useState('')
   const seq = useRef(0)
 
   function choose(e: ChangeEvent<HTMLInputElement>) {
@@ -31,6 +35,7 @@ export default function B3IncomePreview() {
     setReconciled(null)
     setChosen({}); setAccepted(false); setCommitted(null)
     setError('')
+    setCommitError(''); setRefreshWarning('')
   }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -41,6 +46,7 @@ export default function B3IncomePreview() {
     }
     const current = ++seq.current
     setBusy(true); setError(''); setResult(null)
+    setCommitError(''); setRefreshWarning('')
     try {
       const response = await previewB3Incomes(file)
       if (current === seq.current) {
@@ -66,6 +72,7 @@ export default function B3IncomePreview() {
     const current = ++seq.current
     setReconciling(true)
     setError('')
+    setCommitError(''); setRefreshWarning('')
     setReconciled(null)
     setChosen({}); setAccepted(false); setCommitted(null)
     try {
@@ -82,23 +89,39 @@ export default function B3IncomePreview() {
   const selections: B3IncomeCommitEntry[] = candidates.filter(r => chosen[r.excelRow])
     .map(r => ({ excelRow: r.excelRow, confirmAmountDifference: r.status === 'REVIEW_AMOUNT' }))
   const canCommit = !committing && !busy && !reconciling && accepted && !!file && portfolioId != null &&
-    selections.length > 0
+    selections.length > 0 && selections.length <= 1000
 
   async function commit() {
     if (!canCommit || !file || portfolioId == null) return
     const current = ++seq.current
     setCommitting(true); setError(''); setCommitted(null)
+    setCommitError(''); setRefreshWarning('')
     try {
       const response = await commitB3Incomes(file, portfolioId, selections)
       if (current === seq.current) {
         setCommitted(response)
         setAccepted(false)
         setChosen({})
-        const refreshed = await reconcileB3Incomes(file, portfolioId)
-        if (current === seq.current) setReconciled(refreshed)
+        try {
+          const refreshed = await reconcileB3Incomes(file, portfolioId)
+          if (current === seq.current) setReconciled(refreshed)
+        } catch {
+          if (current === seq.current) {
+            setReconciled(null)
+            setRefreshWarning('Os proventos foram importados, mas não foi possível atualizar a conferência. Confira os recebimentos na carteira antes de tentar importar novamente.')
+          }
+        }
       }
-    } catch {
-      if (current === seq.current) setError('A importação foi rejeitada. Confira os ativos, os valores e os possíveis pagamentos duplicados. Nenhum registro do lote deve ser gravado parcialmente.')
+    } catch (failure) {
+      if (current === seq.current) {
+        const response = isAxiosError(failure) ? failure.response : undefined
+        const message = response && response.status >= 400 && response.status < 500
+          ? userFacingApiMessage(response.data?.message ?? response.data?.detail,
+            'A importação foi rejeitada. Confira os ativos, os valores e os possíveis pagamentos duplicados.')
+          : 'Não foi possível confirmar o resultado da importação. Confira os proventos da carteira e refaça a conferência antes de tentar novamente.'
+        setCommitError(message)
+        setAccepted(false)
+      }
     } finally {
       if (current === seq.current) setCommitting(false)
     }
@@ -120,75 +143,94 @@ export default function B3IncomePreview() {
     <p>Envie a planilha de <strong>Movimentação</strong> da B3. Identificamos dividendos, JCP e rendimentos para conferência. <strong>Nenhum provento será gravado nesta etapa.</strong></p>
     <form onSubmit={submit}>
       <label htmlFor="b3-income-file">Planilha de movimentação (.xlsx)</label>{' '}
-      <input id="b3-income-file" type="file" accept=".xlsx" onChange={choose} />
+      <input id="b3-income-file" type="file" accept=".xlsx" onChange={choose} disabled={committing} />
       <p className="b3-import-file-help">Excel (.xlsx), até 10 MB.</p>
-      <button type="submit" disabled={!file || busy}>{busy ? 'Analisando...' : 'Pré-visualizar proventos recebidos'}</button>
+      <button type="submit" disabled={!file || busy || committing}>{busy ? 'Analisando...' : 'Pré-visualizar proventos recebidos'}</button>
     </form>
     {error && <p role="alert">{error}</p>}
     {result && <div aria-live="polite">
       <p><strong>{result.incomeRows}</strong> proventos identificados; {result.skippedRows} outros movimentos ignorados.</p>
       {result.skippedRows > 0 && <section aria-label="Movimentações ignoradas da B3" style={{ marginTop: '1rem' }}>
-        <h3>Movimentações não importadas</h3>
+        <details className="b3-income-ignored">
+        <summary>Movimentações não importadas ({result.skippedRows}) — ver detalhes</summary>
         <p>Estes eventos não são proventos reconhecidos. Nenhum lançamento automático foi realizado para eles.</p>
         {result.skippedDetails && result.skippedDetails.length > 0
-          ? <div style={{ overflowX: 'auto' }}><table className="b3-table">
+          ? <div className="b3-income-table-scroll" role="region" aria-label="Detalhes dos movimentos ignorados" tabIndex={0}><table className="b3-table">
               <thead><tr><th>Linha</th><th>Movimentação</th><th>Motivo</th></tr></thead>
               <tbody>{result.skippedDetails.map(item => <tr key={item.lineNumber}>
                 <td>{item.lineNumber}</td><td>{item.movement}</td><td>{item.reason}</td>
               </tr>)}</tbody>
             </table></div>
           : <p>O detalhamento das linhas ignoradas não foi fornecido pela API. Verifique se o backend está atualizado.</p>}
+        </details>
       </section>}
+      <p><strong>Próximo passo:</strong> selecione a carteira e clique em “Conferir ativos e duplicidades”. Os movimentos ignorados não impedem a conferência dos proventos identificados.</p>
       <p>A data do extrato é a data do crédito recebido. Não é necessário informar data-base.</p>
       <p className="b3-income-pending" role="status">Somente proventos com ativo cadastrado, dados válidos e sem suspeita de duplicidade podem ser importados. Confira e confirme os créditos selecionados.</p>
       <div style={{ margin: '1rem 0', display: 'flex', gap: '.75rem', alignItems: 'end', flexWrap: 'wrap' }}>
         <div><label htmlFor="b3-income-portfolio">Carteira de destino</label>
-          <select id="b3-income-portfolio" value={portfolioId ?? ''} onChange={e => {
+          <select id="b3-income-portfolio" disabled={committing} value={portfolioId ?? ''} onChange={e => {
             seq.current += 1
             setPortfolioId(e.target.value ? Number(e.target.value) : null)
             setReconciled(null)
             setChosen({}); setAccepted(false); setCommitted(null)
+            setCommitError(''); setRefreshWarning('')
           }}><option value="">Selecione a carteira</option>
             {portfolios.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select></div>
-        <button type="button" disabled={portfolioId == null || busy || reconciling} onClick={() => void reconcile()}>
+        <button type="button" disabled={portfolioId == null || busy || reconciling || committing} onClick={() => void reconcile()}>
           {reconciling ? 'Conferindo...' : 'Conferir ativos e duplicidades'}
         </button>
       </div>
       {reconciled && <div role="region" aria-label="Resultado da conciliação de proventos">
         <p>{reconciled.identified} ativos identificados; {reconciled.blocked} registros bloqueados; {reconciled.needsReview} exigem conferência.</p>
+        <div className="b3-income-table-scroll" role="region" aria-label="Situação dos proventos conferidos" tabIndex={0}>
         <table className="b3-table"><thead><tr><th>Linha</th><th>Ativo</th><th>Situação</th><th>Pendências</th></tr></thead>
           <tbody>{reconciled.rows.map(r => <tr key={r.excelRow}><td>{r.excelRow}</td><td>{r.ticker ?? '—'}</td>
             <td>{r.status === 'BLOCKED' ? 'Bloqueado' : r.status === 'POSSIBLE_DUPLICATE' ? 'Possível duplicidade' : r.status === 'REVIEW_AMOUNT' ? 'Revisar diferença no valor' : 'Pronto para importar'}</td>
             <td>{r.messages.join(' ')}{r.status === 'REVIEW_AMOUNT' && r.expectedAmount != null
               ? ` Previsão: ${fmt(r.expectedAmount)}; crédito efetivo: ${fmt(result.rows.find(x => x.excelRow === r.excelRow)?.creditedAmount ?? null)}.` : ''}</td></tr>)}</tbody>
         </table>
+        </div>
         {candidates.length > 0 && <div style={{ marginTop: '1rem' }}>
           <h3>Confirmar proventos identificados</h3>
           <p>Os registros bloqueados e as possíveis duplicidades não serão importados. Para divergências de valor, confira a previsão e o crédito e autorize explicitamente a baixa pelo valor realmente recebido.</p>
-          <div style={{ overflowX: 'auto' }}><table className="b3-table">
+          <div className="b3-income-selection-actions">
+            <button type="button" disabled={committing} onClick={() => {
+              setChosen(Object.fromEntries(candidates.filter(r => r.status === 'READY').slice(0, 1000).map(r => [r.excelRow, true])))
+              setAccepted(false)
+            }}>Selecionar proventos prontos</button>
+            <button type="button" disabled={committing} onClick={() => { setChosen({}); setAccepted(false) }}>Limpar seleção</button>
+            <span>{selections.length} selecionado(s). Limite de 1.000 por importação.</span>
+          </div>
+          <p>Diferenças em relação às previsões exigem seleção individual após conferência.</p>
+          <div className="b3-income-table-scroll" role="region" aria-label="Seleção de proventos para importar" tabIndex={0}><table className="b3-table">
             <thead><tr><th>Importar</th><th>Ativo</th><th>Pagamento</th><th>Valor creditado</th></tr></thead>
             <tbody>{candidates.map(r => {
               const income = result.rows.find(x => x.excelRow === r.excelRow)
               return <tr key={r.excelRow}>
-                <td><input type="checkbox" aria-label={`Importar linha ${r.excelRow}`} checked={!!chosen[r.excelRow]} onChange={e => { setChosen(v => ({ ...v, [r.excelRow]: e.target.checked })); setAccepted(false) }} /></td>
+                <td><input type="checkbox" disabled={committing} aria-label={`Importar linha ${r.excelRow}`} checked={!!chosen[r.excelRow]} onChange={e => { setChosen(v => ({ ...v, [r.excelRow]: e.target.checked })); setAccepted(false) }} /></td>
                 <td>{r.ticker}{r.status === 'REVIEW_AMOUNT' ? ' (diferença confirmada ao selecionar)' : ''}</td><td>{income?.paymentDate ?? '—'}</td><td>{fmt(income?.creditedAmount ?? null)}</td>
 
               </tr>
             })}</tbody>
           </table></div>
           <label style={{ display: 'block', marginTop: '1rem' }}>
-            <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />
+            <input type="checkbox" disabled={committing} checked={accepted} onChange={e => setAccepted(e.target.checked)} />
             {' '}Confirmo os proventos recebidos selecionados, os valores efetivamente creditados pela B3 e, quando indicadas, as diferenças em relação às previsões.
           </label>
           <button type="button" disabled={!canCommit} onClick={() => void commit()}>{committing ? 'Importando...' : `Confirmar importação de ${selections.length} provento(s)`}</button>
         </div>}
-        {committed && <div role="status">
+      </div>}
+      {commitError && <p role="alert">{commitError}</p>}
+      {committed && <div role="status">
           <p>Importação concluída: {committed.imported} provento(s), total creditado {fmt(committed.totalCredited)}.</p>
           <p><a href="/incomes">Ver proventos da carteira</a> · <a href="/dashboard">Ver indicadores atualizados</a></p>
         </div>}
-      </div>}
-      <div style={{ overflowX: 'auto' }}><table className="b3-table">
+      {refreshWarning && <p role="alert">{refreshWarning}</p>}
+      <h3>Detalhamento dos proventos identificados</h3>
+      <p>Os avisos desta prévia não bloqueiam a linha. Confira também os ativos e as possíveis duplicidades antes de confirmar. O crédito total do extrato será preservado.</p>
+      <div className="b3-income-table-scroll" role="region" aria-label="Detalhamento dos proventos identificados" tabIndex={0}><table className="b3-table">
         <thead><tr><th>Linha</th><th>Pagamento</th><th>Tipo</th><th>Produto B3</th><th>Instituição</th><th>Qtde.</th><th>Unitário</th><th>Valor creditado</th><th>Conferência</th></tr></thead>
         <tbody>{result.rows.map(row => <tr key={row.excelRow}>
           <td>{row.excelRow}</td><td>{row.paymentDate ?? '—'}</td><td>{row.movement}</td><td>{row.product}</td><td>{row.institution}</td><td>{row.quantity ?? '—'}</td><td>{fmt(row.unitPrice)}</td><td>{fmt(row.creditedAmount)}</td>

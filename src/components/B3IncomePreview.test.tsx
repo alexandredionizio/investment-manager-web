@@ -10,7 +10,50 @@ vi.mock('../services/portfolioService', () => ({ findAllPortfolios: vi.fn() }))
 beforeEach(() => vi.clearAllMocks())
 afterEach(() => cleanup())
 
+async function prepareReadyImport() {
+  vi.mocked(findAllPortfolios).mockResolvedValue([{ id: 3, name: 'Teste' } as Awaited<ReturnType<typeof findAllPortfolios>>[number]])
+  vi.mocked(previewB3Incomes).mockResolvedValue({ fileName: 'movimentacao.xlsx', totalRows: 1, incomeRows: 1, skippedRows: 0,
+    rows: [{ excelRow: 2, paymentDate: '2026-11-10', movement: 'Dividendo', product: 'PETR4', institution: 'XP',
+      type: 'DIVIDEND', quantity: 100, unitPrice: 0.5, creditedAmount: 50, errors: [], warnings: [] }] })
+  vi.mocked(reconcileB3Incomes).mockResolvedValue({ portfolioId: 3, total: 1, identified: 1, blocked: 0, needsReview: 1,
+    rows: [{ excelRow: 2, ticker: 'PETR4', assetId: 5, status: 'READY', messages: [] }] })
+  render(<B3IncomePreview />)
+  fireEvent.change(screen.getByLabelText('Planilha de movimentação (.xlsx)'), {
+    target: { files: [new File(['sintético'], 'movimentacao.xlsx')] },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Pré-visualizar proventos recebidos' }))
+  await screen.findByRole('option', { name: 'Teste' })
+  fireEvent.change(screen.getByLabelText('Carteira de destino'), { target: { value: '3' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Conferir ativos e duplicidades' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Selecionar proventos prontos' }))
+  fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo os proventos recebidos selecionados/ }))
+}
+
 describe('IM-054: prévia de proventos B3', () => {
+  it('mostra o motivo da rejeição junto da confirmação e exige nova confirmação', async () => {
+    await prepareReadyImport()
+    vi.mocked(commitB3Incomes).mockRejectedValueOnce({ isAxiosError: true,
+      response: { status: 409, data: { message: 'Possível pagamento já registrado na linha 3' } } })
+    const button = screen.getByRole('button', { name: 'Confirmar importação de 1 provento(s)' })
+    fireEvent.click(button)
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Possível pagamento já registrado na linha 3')
+    expect(button.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(button.hasAttribute('disabled')).toBe(true)
+    expect(screen.queryByText(/Importação concluída:/)).toBeNull()
+  })
+
+  it('preserva o sucesso da gravação quando a atualização da conferência falha', async () => {
+    await prepareReadyImport()
+    vi.mocked(commitB3Incomes).mockResolvedValueOnce({ imported: 1, totalCredited: 50, incomeIds: [91] })
+    vi.mocked(reconcileB3Incomes).mockRejectedValueOnce(new Error('Falha ao atualizar'))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar importação de 1 provento(s)' }))
+    expect(await screen.findByText(/Importação concluída: 1 provento/)).toBeTruthy()
+    expect((await screen.findByRole('alert')).textContent).toContain('Os proventos foram importados')
+    expect(screen.queryByRole('button', { name: /Confirmar importação de/ })).toBeNull()
+    expect(commitB3Incomes).toHaveBeenCalledOnce()
+  })
+
   it('não chama a API antes da confirmação e nunca cadastra proventos', async () => {
     vi.mocked(findAllPortfolios).mockResolvedValue([{ id: 3, name: 'Carteira Teste' } as Awaited<ReturnType<typeof findAllPortfolios>>[number]])
     vi.mocked(previewB3Incomes).mockResolvedValue({
@@ -41,7 +84,13 @@ describe('IM-054: prévia de proventos B3', () => {
     await waitFor(() => expect(reconcileB3Incomes).toHaveBeenCalledWith(file, 3))
     expect(await screen.findByRole('region', { name: 'Resultado da conciliação de proventos' })).toBeTruthy()
     expect(commitB3Incomes).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Importar linha 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar proventos prontos' }))
+    expect((screen.getByRole('checkbox', { name: 'Importar linha 2' }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByRole('button', { name: 'Confirmar importação de 1 provento(s)' }).hasAttribute('disabled')).toBe(true)
+    fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo os proventos recebidos selecionados/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar seleção' }))
+    expect((screen.getByRole('checkbox', { name: 'Importar linha 2' }) as HTMLInputElement).checked).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar proventos prontos' }))
     expect(screen.getByRole('button', { name: 'Confirmar importação de 1 provento(s)' }).hasAttribute('disabled')).toBe(true)
     expect(commitB3Incomes).not.toHaveBeenCalled()
   })
@@ -64,6 +113,8 @@ describe('IM-054: prévia de proventos B3', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Conferir ativos e duplicidades' }))
     expect(await screen.findByText('Revisar diferença no valor')).toBeTruthy()
     expect(screen.getByText(/Previsão: R\$ 60,00/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar proventos prontos' }))
+    expect((screen.getByRole('checkbox', { name: 'Importar linha 2' }) as HTMLInputElement).checked).toBe(false)
     fireEvent.click(screen.getByRole('checkbox', { name: 'Importar linha 2' }))
     const confirm = screen.getByRole('button', { name: 'Confirmar importação de 1 provento(s)' })
     expect(confirm.hasAttribute('disabled')).toBe(true)
@@ -94,6 +145,8 @@ describe('IM-054: prévia de proventos B3', () => {
     expect(region.textContent).toContain('Movimentação não reconhecida como provento')
     expect(region.textContent).toContain('Sem lançamento automático')
     expect(region.querySelectorAll('tbody tr')).toHaveLength(2)
+    expect(region.querySelector('details')?.open).toBe(false)
+    expect(region.contains(screen.getByLabelText('Carteira de destino'))).toBe(false)
     expect(region.querySelectorAll('tbody tr')[0].textContent).toContain('2')
     expect(region.querySelectorAll('tbody tr')[1].textContent).toContain('3')
     expect(reconcileB3Incomes).not.toHaveBeenCalled()

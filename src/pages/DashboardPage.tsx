@@ -17,11 +17,9 @@ import {
 } from 'recharts'
 
 import Header from '../components/Header'
-import api from '../services/api'
-import { getXirrPreview } from '../services/xirrPreviewService'
-import { XirrPreviewCard } from '../components/XirrPreviewCard'
 import { AssetClassFilter } from '../components/AssetClassFilter'
 import { DashboardIssuesSummary } from '../components/DashboardIssuesSummary'
+import { MarketTicker } from '../components/MarketTicker'
 import { summarizeValuations, benchmarkAvailability } from '../services/valuation'
 
 import {
@@ -65,8 +63,6 @@ const monthLabels = [
     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
 ]
 
-// Função estável: evita requisições repetidas ao renderizar o Dashboard.
-const loadXirrPreview = (portfolioId: number) => getXirrPreview(api, portfolioId)
 
 function DashboardPage() {
 
@@ -758,6 +754,7 @@ function DashboardPage() {
                 <main className="dashboard-container">
 
                     <PageHeading title="Dashboard" description="Carregando seus investimentos..." />
+                    <MarketTicker />
 
                 </main>
             </>
@@ -891,6 +888,8 @@ function DashboardPage() {
                     </div>
                 </div>
 
+                <MarketTicker />
+
                 {error && (
 
                     <div className="dashboard-error" role="alert">
@@ -913,7 +912,8 @@ function DashboardPage() {
                         {emptyPortfolio === true && <p role="status">Esta carteira ainda não possui transações. As métricas serão exibidas conforme houver dados.</p>}
                         <DashboardIssuesSummary issues={visibleIssues} />
 
-                        <div className="dashboard-metrics">
+                        <div className="dashboard-overview">
+                        <div className="dashboard-metrics" role="region" aria-label="Indicadores da carteira">
 
                             <article className="dashboard-metric-card">
 
@@ -1007,23 +1007,58 @@ function DashboardPage() {
                                 <small>Pagamentos previstos (cadastro manual e B3)</small>
                             </article>
 
-                            <article className="dashboard-metric-card">
 
-                                <span>
-                                    Ativos
-                                </span>
+                                <article className="dashboard-metric-card">
 
-                                <strong>{metricValue('positions', String(positions.length))}</strong>
+                                    <span>
+                                        Rentabilidade total
+                                    </span>
 
-                                <small>
-                                    Posições na carteira
-                                </small>
+                                    <strong className={returnClass(totalWeightedReturn, 'total')}>
+                                        {returnValue('total', totalWeightedReturn)}
+                                    </strong>
 
-                            </article>
+                                    <small>
+                                        Desde o primeiro lançamento da carteira
+                                    </small>
 
-                            {selectedPortfolioId !== null && (
-                                <XirrPreviewCard portfolioId={selectedPortfolioId} loadPreview={loadXirrPreview} />
-                            )}
+                                </article>
+
+                                <article className="dashboard-metric-card">
+
+                                    <span>
+                                        Últimos 12 meses
+                                    </span>
+
+                                    <strong className={returnClass(lastTwelveMonthsWeightedReturn, 'year')}>
+                                        {returnValue('year', lastTwelveMonthsWeightedReturn)}
+                                    </strong>
+
+                                    <small>
+                                        Rentabilidade ponderada no período
+                                    </small>
+
+                                </article>
+
+                                <article className="dashboard-metric-card">
+
+                                    <span>
+                                        Último mês
+                                    </span>
+
+                                    <strong className={returnClass(lastMonthWeightedReturn, 'month', monthRecoveredFromComparison)}>
+                                        {returnValue('month', lastMonthWeightedReturn, monthRecoveredFromComparison)}
+                                    </strong>
+
+                                    <small>
+                                        Rentabilidade ponderada no período
+                                        {monthRecoveredFromComparison && ' · Confirmada pela série da carteira até ' + fullDateLabel(confirmedMonthComparison!.timestamp)}
+                                    </small>
+
+                                </article>
+
+
+                        </div>
 
                         </div>
 
@@ -1120,58 +1155,7 @@ function DashboardPage() {
                                 </div>
                             )}
 
-                            <div className="dashboard-metrics">
 
-                                <article className="dashboard-metric-card">
-
-                                    <span>
-                                        Rentabilidade total
-                                    </span>
-
-                                    <strong className={returnClass(totalWeightedReturn, 'total')}>
-                                        {returnValue('total', totalWeightedReturn)}
-                                    </strong>
-
-                                    <small>
-                                        Desde o primeiro lançamento da carteira
-                                    </small>
-
-                                </article>
-
-                                <article className="dashboard-metric-card">
-
-                                    <span>
-                                        Últimos 12 meses
-                                    </span>
-
-                                    <strong className={returnClass(lastTwelveMonthsWeightedReturn, 'year')}>
-                                        {returnValue('year', lastTwelveMonthsWeightedReturn)}
-                                    </strong>
-
-                                    <small>
-                                        Rentabilidade ponderada no período
-                                    </small>
-
-                                </article>
-
-                                <article className="dashboard-metric-card">
-
-                                    <span>
-                                        Último mês
-                                    </span>
-
-                                    <strong className={returnClass(lastMonthWeightedReturn, 'month', monthRecoveredFromComparison)}>
-                                        {returnValue('month', lastMonthWeightedReturn, monthRecoveredFromComparison)}
-                                    </strong>
-
-                                    <small>
-                                        Rentabilidade ponderada no período
-                                        {monthRecoveredFromComparison && ' · Confirmada pela série da carteira até ' + fullDateLabel(confirmedMonthComparison!.timestamp)}
-                                    </small>
-
-                                </article>
-
-                            </div>
 
                             {benchmarkAvailability(benchmarkComparison.map(p => p.cdiReturn), 'CDI') && <p>{benchmarkAvailability(benchmarkComparison.map(p => p.cdiReturn), 'CDI')}</p>}
                             {benchmarkAvailability(benchmarkComparison.map(p => p.ibovReturn), 'IBOV') && <p>{benchmarkAvailability(benchmarkComparison.map(p => p.ibovReturn), 'IBOV')}</p>}

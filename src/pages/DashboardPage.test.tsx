@@ -40,7 +40,8 @@ beforeEach(() => {
         if (replaced !== unchanged) return { data: replaced } as AxiosResponse
         const id = Number(url.match(/portfolios?\/(\d+)/)?.[1] ?? 1)
         let data: unknown
-        if (url === '/portfolios') data = [portfolio]
+        if (url === '/market/ticker') data = { items: [], fetchedAt: recentIso }
+        else if (url === '/portfolios') data = [portfolio]
         else if (url.startsWith('/transactions/portfolio/')) data = populated ? [{ ...transaction, portfolioId: id }] : []
         else if (url.endsWith('/positions/valuations')) data = populated ? [position] : []
         else if (url.endsWith('/incomes') || url.includes('/incomes/portfolio/')) data = []
@@ -63,6 +64,13 @@ const ready = async () => {
 }
 
 describe('IM-045: Dashboard da carteira importada', () => {
+    it('places the market strip after the heading and before portfolio indicators', async () => {
+        open()
+        await ready()
+        const ticker = screen.getByRole('region', { name: 'Cotações de mercado' })
+        expect(screen.getByText('Visão geral dos seus investimentos.').compareDocumentPosition(ticker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        expect(ticker.compareDocumentPosition(screen.getByRole('region', { name: 'Indicadores da carteira' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
     it('seleciona a carteira importada e carrega somente os seus indicadores', async () => {
         saveSelectedPortfolioId(6)
         try {
@@ -496,7 +504,8 @@ it('preserves valid valuation and full accounting without treating missing SOL a
     expect(card('Custo investido').textContent).toContain('1.500,00')
     expect(card('Resultado não realizado').textContent).toContain('0,00')
     expect(card('Resultado não realizado').textContent).not.toContain('500,00')
-    expect(screen.getByText('Criptomoeda sem suporte de avaliação')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todas' }))
+    expect(await screen.findByText('Criptomoeda sem suporte de avaliação')).toBeTruthy()
 })
 
 it('labels mixed CDI availability accurately and keeps gaps in chart data', async () => {

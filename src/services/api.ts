@@ -8,7 +8,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token')
 
-    if (token) {
+    if (token && !config.url?.startsWith('/auth/')) {
         config.headers.Authorization = `Bearer ${token}`
     }
 
@@ -19,7 +19,7 @@ api.interceptors.response.use(
     (response) => response,
 
     (error) => {
-        const isLoginRequest = error.config?.url === '/auth/login'
+        const isLoginRequest = error.config?.url?.startsWith('/auth/')
 
         if (error.response?.status === 401 && !isLoginRequest) {
             localStorage.removeItem('token')

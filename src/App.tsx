@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
+const AccountPage = lazy(() => import('./pages/AccountPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const PortfoliosPage = lazy(() => import('./pages/PortfoliosPage'))
 const TransactionsPage = lazy(() => import('./pages/TransactionsPage'))
@@ -19,6 +20,9 @@ function App() {
             <Suspense fallback={<p role="status">Carregando pÃ¡gina...</p>}>
                 <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                {(['register', 'confirm-email', 'resend-confirmation', 'forgot-password', 'reset-password'] as const).map(mode =>
+                    <Route key={mode} path={`/${mode}`} element={<AccountPage key={mode} mode={mode} />} />)}
+                <Route path="/auth/google" element={<AccountPage key="google" mode="google" />} />
                 <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
                 <Route path="/portfolios" element={<ProtectedRoute><PortfoliosPage /></ProtectedRoute>} />
                 <Route path="/portfolios/:id" element={<ProtectedRoute><PortfolioDetailsPage /></ProtectedRoute>} />
